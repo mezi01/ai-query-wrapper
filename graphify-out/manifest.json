@@ -1,0 +1,27 @@
+{
+  "cleanData.py": {
+    "mtime": 1782139841.1902285,
+    "ast_hash": "0b631009c3c6aa9b121df4ce4fddcdc7",
+    "semantic_hash": "0b631009c3c6aa9b121df4ce4fddcdc7"
+  },
+  "dataDict_Editing.json": {
+    "mtime": 1782159807.3609529,
+    "ast_hash": "5a8631c3ff99269ce9a746aefa2ab887",
+    "semantic_hash": "5a8631c3ff99269ce9a746aefa2ab887"
+  },
+  "prototypeSchema.sql": {
+    "mtime": 1781810915.2634275,
+    "ast_hash": "1745d2ac766a3545d1c9a28f91a9e0d2",
+    "semantic_hash": "1745d2ac766a3545d1c9a28f91a9e0d2"
+  },
+  "queryEngine.py": {
+    "mtime": 1782158990.188872,
+    "ast_hash": "8e7649d0f3a38a6432deeae5bff28576",
+    "semantic_hash": "8e7649d0f3a38a6432deeae5bff28576"
+  },
+  "seedData.py": {
+    "mtime": 1781811844.666292,
+    "ast_hash": "b1e8b8381b6763012a205a09a703ca8b",
+    "semantic_hash": "b1e8b8381b6763012a205a09a703ca8b"
+  }
+}

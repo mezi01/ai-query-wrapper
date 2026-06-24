@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DistributionDataPrototype — Complete Call Flow &amp; Architecture Documentation</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+:root {
+  --bg: #0f172a; --surface: #1e293b; --border: #334155;
+  --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+  --warn: #fbbf24; --err: #f87171; --ok: #34d399;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+.container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+h1 { font-size: 2.4rem; margin-bottom: 8px; background: linear-gradient(135deg, var(--accent), #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+h2 { font-size: 1.7rem; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); }
+h3 { font-size: 1.25rem; margin: 32px 0 12px; color: var(--accent); }
+h4 { font-size: 1.05rem; margin: 20px 0 8px; color: var(--warn); }
+p { margin: 8px 0; color: var(--muted); }
+.subtitle { color: var(--muted); font-size: 1.1rem; margin-bottom: 32px; }
+.mermaid { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin: 20px 0; overflow-x: auto; position: relative; }
+.mermaid.is-enhanced { padding: 0; overflow: hidden; min-height: 260px; }
+.mermaid-viewport { padding: 54px 24px 24px; overflow: hidden; cursor: grab; touch-action: none; min-height: 260px; }
+.mermaid-viewport.is-dragging { cursor: grabbing; }
+.mermaid-viewport svg { max-width: none !important; height: auto; transform-origin: 0 0; transition: transform 120ms ease; }
+.mermaid-toolbar { position: absolute; top: 10px; right: 10px; z-index: 3; display: flex; align-items: center; gap: 6px; padding: 6px; background: rgba(15,23,42,0.92); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.28); }
+.mermaid-toolbar button, .mermaid-toolbar .zoom-level { height: 28px; min-width: 32px; border: 1px solid var(--border); border-radius: 6px; background: #1e293b; color: var(--text); font: 600 0.78rem system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; }
+.mermaid-toolbar button { cursor: pointer; }
+.mermaid-toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+.mermaid-toolbar .zoom-level { min-width: 52px; color: var(--muted); background: transparent; }
+.call-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.92rem; }
+.call-table th { background: #1a2744; color: var(--accent); text-align: left; padding: 10px 14px; border: 1px solid var(--border); }
+.call-table td { padding: 8px 14px; border: 1px solid var(--border); vertical-align: top; }
+.call-table tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+.tag-async { background: #7c3aed33; color: #a78bfa; }
+.tag-class { background: #05966933; color: var(--ok); }
+.tag-func { background: #2563eb33; color: var(--accent); }
+.tag-cmd { background: #d9770633; color: var(--warn); }
+.tag-endpoint { background: #dc262633; color: var(--err); }
+.tag-hook { background: #db277733; color: #f472b6; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 16px 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin: 16px 0; }
+.arrow-chain { font-family: 'Fira Code', monospace; font-size: 0.85rem; color: var(--accent); padding: 10px; background: rgba(56,189,248,0.06); border-radius: 6px; }
+code { font-family: 'Fira Code', 'Cascadia Code', monospace; background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 3px; font-size: 0.88em; }
+ul, ol { margin: 8px 0 8px 24px; color: var(--muted); }
+li { margin: 4px 0; }
+a { color: var(--accent); }
+hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+.nav { position: sticky; top: 0; background: var(--bg); z-index: 10; padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.9rem; }
+.nav a { text-decoration: none; }
+.nav a:hover { text-decoration: underline; }
+@media (max-width: 768px) { .container { padding: 16px; } h1 { font-size: 1.8rem; } }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>DistributionDataPrototype — Complete Call Flow &amp; Architecture Documentation</h1>
+<p class="subtitle">Generated from graphify knowledge graph: 28 nodes, 50 edges, 6 communities. Commit: unknown</p>
+
+<div class="nav">
+    <a href="#overview">Architecture Overview</a>
+    <a href="#build-graph">Graph Build</a>
+    <a href="#cli-skills">CLI &amp; Skill Installers</a>
+    <a href="#cleandatapy-clean-show">Cleandatapy Clean Show</a>
+    <a href="#queryenginepy-get-sql">Queryenginepy Get Sql</a>
+    <a href="#queryenginepy-run-sql">Queryenginepy Run Sql</a>
+    <a href="#system-prompt-queryenginepy">System Prompt Queryenginepy</a>
+</div>
+
+<!-- ====== Architecture Overview ====== -->
+<h2 id="overview">1. Architecture Overview</h2>
+
+<div class="mermaid">
+
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    BUILD_GRAPH_321CBB04("Graph Build<br/><small>10 nodes</small>")
+    class BUILD_GRAPH_321CBB04 module;
+    CLI_SKILLS_9964CBB8("CLI &amp; Skill Installers<br/><small>5 nodes</small>")
+    class CLI_SKILLS_9964CBB8 module;
+    CLEANDATAPY_CLEAN_SHOW_637371FF("Cleandatapy Clean Show<br/><small>5 nodes</small>")
+    class CLEANDATAPY_CLEAN_SHOW_637371FF module;
+    QUERYENGINEPY_GET_SQL_86F732B5("Queryenginepy Get Sql<br/><small>3 nodes</small>")
+    class QUERYENGINEPY_GET_SQL_86F732B5 module;
+    QUERYENGINEPY_RUN_SQL_9E248E25("Queryenginepy Run Sql<br/><small>3 nodes</small>")
+    class QUERYENGINEPY_RUN_SQL_9E248E25 module;
+    SYSTEM_PROMPT_QUERYENGINEPY_9F7F286B("System Prompt Queryenginepy<br/><small>2 nodes</small>")
+    class SYSTEM_PROMPT_QUERYENGINEPY_9F7F286B module;
+    CLI_SKILLS_9964CBB8 -->|contains x3| QUERYENGINEPY_GET_SQL_86F732B5
+    CLI_SKILLS_9964CBB8 -->|contains x3| QUERYENGINEPY_RUN_SQL_9E248E25
+    QUERYENGINEPY_GET_SQL_86F732B5 -->|calls x3| CLI_SKILLS_9964CBB8
+    QUERYENGINEPY_GET_SQL_86F732B5 -->|calls x2| QUERYENGINEPY_RUN_SQL_9E248E25
+    QUERYENGINEPY_RUN_SQL_9E248E25 -->|calls x2| CLI_SKILLS_9964CBB8
+    CLI_SKILLS_9964CBB8 -->|contains| SYSTEM_PROMPT_QUERYENGINEPY_9F7F286B
+    SYSTEM_PROMPT_QUERYENGINEPY_9F7F286B -->|calls| CLI_SKILLS_9964CBB8
+    QUERYENGINEPY_RUN_SQL_9E248E25 -->|calls| QUERYENGINEPY_GET_SQL_86F732B5
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h4>Architecture Layers</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>Layer</th><th>Nodes</th><th>Communities</th></tr>
+      <tr><td>Graph Build</td><td>10</td><td><code>0</code></td></tr><tr><td>CLI &amp; Skill Installers</td><td>5</td><td><code>2</code></td></tr><tr><td>Cleandatapy Clean Show</td><td>5</td><td><code>1</code></td></tr><tr><td>Queryenginepy Get Sql</td><td>3</td><td><code>3</code></td></tr><tr><td>Queryenginepy Run Sql</td><td>3</td><td><code>4</code></td></tr><tr><td>System Prompt Queryenginepy</td><td>2</td><td><code>5</code></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Core Flow</h4>
+    <div class="arrow-chain">Graph Build -&gt; CLI &amp; Skill Installers -&gt; Queryenginepy Run Sql -&gt; Queryenginepy Get Sql -&gt; Cleandatapy Clean Show -&gt; System Prompt Queryenginepy</div>
+  </div>
+</div>
+<hr>
+<!-- ====== 2. Graph Build ====== -->
+<h2 id="build-graph">2. Graph Build</h2>
+<p>Graph Build groups implementation around seeddatapy, build, dirty, data, mostly in seedData.py. This section covers 10 nodes and 16 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Graph Build (10 nodes, 16 edges)
+    seeddata_build_losses_3ccac81f("build_losses()<br/><small>seedData.py</small>")
+    seeddata_build_policies_5980115c("build_policies()<br/><small>seedData.py</small>")
+    seeddata_build_quotes_b1b096de("build_quotes()<br/><small>seedData.py</small>")
+    seeddata_build_submission_groups_6fdd8cfb("build_submission_groups()<br/><small>seedData.py</small>")
+    seeddata_build_submissions_6ef77576("build_submissions()<br/><small>seedData.py</small>")
+    seeddata_make_dirty_6c34a7d0("make_dirty()<br/><small>seedData.py</small>")
+    seeddata_build_accounts_56dc93ce("build_accounts()<br/><small>seedData.py</small>")
+    seeddata_seed_8ca65593("seed()<br/><small>seedData.py</small>")
+    seeddata_cef7bc0e("seedData.py")
+    seeddata_rationale_1_066c207c("-generate fake insurance data for testi...<br/><small>seedData.py</small>")
+    seeddata_make_dirty_6c34a7d0 -->|calls| seeddata_build_accounts_56dc93ce
+    seeddata_build_accounts_56dc93ce -->|calls| seeddata_seed_8ca65593
+    seeddata_build_submission_groups_6fdd8cfb -->|calls| seeddata_seed_8ca65593
+    seeddata_build_submissions_6ef77576 -->|calls| seeddata_seed_8ca65593
+    seeddata_build_quotes_b1b096de -->|calls| seeddata_seed_8ca65593
+    seeddata_build_policies_5980115c -->|calls| seeddata_seed_8ca65593
+    seeddata_build_losses_3ccac81f -->|calls| seeddata_seed_8ca65593
+    class seeddata_build_losses_3ccac81f async;
+    class seeddata_build_policies_5980115c function;
+    class seeddata_build_quotes_b1b096de function;
+    class seeddata_build_submission_groups_6fdd8cfb function;
+    class seeddata_build_submissions_6ef77576 function;
+    class seeddata_make_dirty_6c34a7d0 function;
+    class seeddata_build_accounts_56dc93ce function;
+    class seeddata_seed_8ca65593 function;
+    class seeddata_cef7bc0e module;
+    class seeddata_rationale_1_066c207c concept;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>seedData.py</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in seedData.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>make_dirty()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>build_accounts()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td>make_dirty() node in seedData.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>build_accounts()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>make_dirty()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td><code>seed()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td>build_accounts() node in seedData.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>build_submission_groups()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>seed()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td>build_submission_groups() node in seedData.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>build_submissions()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>seed()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td>build_submissions() node in seedData.py.</td>
+</tr>
+<tr>
+  <td>6</td>
+  <td><code>build_quotes()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>seed()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td>build_quotes() node in seedData.py.</td>
+</tr>
+<tr>
+  <td>7</td>
+  <td><code>build_policies()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>seed()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td>build_policies() node in seedData.py.</td>
+</tr>
+<tr>
+  <td>8</td>
+  <td><code>build_losses()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td><span class="tag tag-async">Async</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>seed()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td>build_losses() node in seedData.py.</td>
+</tr>
+<tr>
+  <td>9</td>
+  <td><code>seed()</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>build_accounts()</code><br><small style="color:var(--muted)">seedData.py</small><br><code>build_losses()</code><br><small style="color:var(--muted)">seedData.py</small><br><code>build_policies()</code><br><small style="color:var(--muted)">seedData.py</small><br>+3 more</td>
+  <td>No direct outbound edge</td>
+  <td>seed() node in seedData.py.</td>
+</tr>
+<tr>
+  <td>10</td>
+  <td><code>-generate fake insurance data for testing -includes intentional dirty data to p</code><br><small style="color:var(--muted)">seedData.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for -generate fake insurance data for testing -includes intentional dirty data to p.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>seedData.py</code></td><td>10 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x8, calls x7, explains x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 3. CLI & Skill Installers ====== -->
+<h2 id="cli-skills">3. CLI &amp; Skill Installers</h2>
+<p>CLI &amp; Skill Installers groups implementation around queryenginepy, data, load, dictionary, mostly in queryEngine.py. This section covers 5 nodes and 6 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: CLI &amp; Skill Installers (5 nodes, 6 edges)
+    queryengine_interactive_mode_c2dd5a66("interactive_mode()<br/><small>queryEngine.py</small>")
+    queryengine_load_data_dictionary_84804b9d("load_data_dictionary()<br/><small>queryEngine.py</small>")
+    queryengine_main_dd42252c("main()<br/><small>queryEngine.py</small>")
+    queryengine_581a391a("queryEngine.py")
+    queryengine_rationale_1_27c20739("query_engine.py Plain English → SQL → R...<br/><small>queryEngine.py</small>")
+    queryengine_load_data_dictionary_84804b9d -->|calls| queryengine_main_dd42252c
+    queryengine_interactive_mode_c2dd5a66 -->|calls| queryengine_main_dd42252c
+    class queryengine_interactive_mode_c2dd5a66 function;
+    class queryengine_load_data_dictionary_84804b9d function;
+    class queryengine_main_dd42252c function;
+    class queryengine_581a391a module;
+    class queryengine_rationale_1_27c20739 concept;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>queryEngine.py</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in queryEngine.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>load_data_dictionary()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>main()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td>load_data_dictionary() node in queryEngine.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>interactive_mode()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>main()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td>interactive_mode() node in queryEngine.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>main()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>interactive_mode()</code><br><small style="color:var(--muted)">queryEngine.py</small><br><code>load_data_dictionary()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>main() node in queryEngine.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>query_engine.py Plain English → SQL → Results using Claude API + your data dicti</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for query_engine.py Plain English → SQL → Results using Claude API + your data dicti.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>queryEngine.py</code></td><td>5 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x3, calls x2, explains x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 4. Cleandatapy Clean Show ====== -->
+<h2 id="cleandatapy-clean-show">4. Cleandatapy Clean Show</h2>
+<p>Cleandatapy Clean Show groups implementation around cleandatapy, clean, show, dirty, mostly in cleanData.py. This section covers 5 nodes and 7 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Cleandatapy Clean Show (5 nodes, 7 edges)
+    cleandata_clean_accounts_dc534156("clean_accounts()<br/><small>cleanData.py</small>")
+    cleandata_clean_brokers_1db2b075("clean_brokers()<br/><small>cleanData.py</small>")
+    cleandata_show_dirty_data_5bbd578d("show_dirty_data()<br/><small>cleanData.py</small>")
+    cleandata_main_e4bd4473("main()<br/><small>cleanData.py</small>")
+    cleandata_8e78c651("cleanData.py")
+    cleandata_show_dirty_data_5bbd578d -->|calls| cleandata_main_e4bd4473
+    cleandata_clean_accounts_dc534156 -->|calls| cleandata_main_e4bd4473
+    cleandata_clean_brokers_1db2b075 -->|calls| cleandata_main_e4bd4473
+    class cleandata_clean_accounts_dc534156 function;
+    class cleandata_clean_brokers_1db2b075 function;
+    class cleandata_show_dirty_data_5bbd578d function;
+    class cleandata_main_e4bd4473 function;
+    class cleandata_8e78c651 module;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>cleanData.py</code><br><small style="color:var(--muted)">cleanData.py</small></td>
+  <td><span class="tag tag-class">Module</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Module file in cleanData.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>show_dirty_data()</code><br><small style="color:var(--muted)">cleanData.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>main()</code><br><small style="color:var(--muted)">cleanData.py</small></td>
+  <td>show_dirty_data() node in cleanData.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>clean_accounts()</code><br><small style="color:var(--muted)">cleanData.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>main()</code><br><small style="color:var(--muted)">cleanData.py</small></td>
+  <td>clean_accounts() node in cleanData.py.</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td><code>clean_brokers()</code><br><small style="color:var(--muted)">cleanData.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>main()</code><br><small style="color:var(--muted)">cleanData.py</small></td>
+  <td>clean_brokers() node in cleanData.py.</td>
+</tr>
+<tr>
+  <td>5</td>
+  <td><code>main()</code><br><small style="color:var(--muted)">cleanData.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>clean_accounts()</code><br><small style="color:var(--muted)">cleanData.py</small><br><code>clean_brokers()</code><br><small style="color:var(--muted)">cleanData.py</small><br><code>show_dirty_data()</code><br><small style="color:var(--muted)">cleanData.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>main() node in cleanData.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>cleanData.py</code></td><td>5 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: contains x4, calls x3. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 5. Queryenginepy Get Sql ====== -->
+<h2 id="queryenginepy-get-sql">5. Queryenginepy Get Sql</h2>
+<p>Queryenginepy Get Sql groups implementation around queryenginepy, get, sql, claude, mostly in queryEngine.py. This section covers 3 nodes and 2 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Queryenginepy Get Sql (3 nodes, 2 edges)
+    subgraph queryenginepy_get_sql_queryEngine_py_6b1f2b4d["queryEngine.py"]
+        queryengine_get_sql_from_claude_6fde8eed("get_sql_from_claude()<br/><small>queryEngine.py</small>")
+        queryengine_demo_mode_3555d201("demo_mode()<br/><small>queryEngine.py</small>")
+    end
+    anthropic_c03a8d10("Anthropic")
+    queryengine_get_sql_from_claude_6fde8eed -->|references| anthropic_c03a8d10
+    anthropic_c03a8d10 -->|references| queryengine_demo_mode_3555d201
+    class queryengine_get_sql_from_claude_6fde8eed function;
+    class queryengine_demo_mode_3555d201 function;
+    class anthropic_c03a8d10 klass;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>get_sql_from_claude()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>get_sql_from_claude() node in queryEngine.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Anthropic</code><br><small style="color:var(--muted)"></small></td>
+  <td><span class="tag tag-class">Class</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Anthropic node in project.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>demo_mode()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>demo_mode() node in queryEngine.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>queryEngine.py</code></td><td>2 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: references x2. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 6. Queryenginepy Run Sql ====== -->
+<h2 id="queryenginepy-run-sql">6. Queryenginepy Run Sql</h2>
+<p>Queryenginepy Run Sql groups implementation around queryenginepy, run, sql, format, mostly in queryEngine.py. This section covers 3 nodes and 2 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: Queryenginepy Run Sql (3 nodes, 2 edges)
+    queryengine_format_results_2c9aeee3("format_results()<br/><small>queryEngine.py</small>")
+    queryengine_run_sql_3d57f3f1("run_sql()<br/><small>queryEngine.py</small>")
+    queryengine_ask_f779ca0f("ask()<br/><small>queryEngine.py</small>")
+    queryengine_run_sql_3d57f3f1 -->|calls| queryengine_ask_f779ca0f
+    queryengine_format_results_2c9aeee3 -->|calls| queryengine_ask_f779ca0f
+    class queryengine_format_results_2c9aeee3 function;
+    class queryengine_run_sql_3d57f3f1 function;
+    class queryengine_ask_f779ca0f function;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>run_sql()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ask()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td>run_sql() node in queryEngine.py.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>format_results()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td><code>ask()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td>format_results() node in queryEngine.py.</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td><code>ask()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td><code>format_results()</code><br><small style="color:var(--muted)">queryEngine.py</small><br><code>run_sql()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td>No direct outbound edge</td>
+  <td>ask() node in queryEngine.py.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>queryEngine.py</code></td><td>3 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: calls x2. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<!-- ====== 7. System Prompt Queryenginepy ====== -->
+<h2 id="system-prompt-queryenginepy">7. System Prompt Queryenginepy</h2>
+<p>System Prompt Queryenginepy groups implementation around system, prompt, queryenginepy, build, mostly in queryEngine.py. This section covers 2 nodes and 1 internal edges; the diagram shows only representative relationships to stay readable.</p>
+
+<div class="mermaid">
+%%{init: {"theme": "dark", "themeVariables": {"fontSize": "15.0px", "fontFamily": "Segoe UI, system-ui, sans-serif", "primaryColor": "#1e293b", "primaryTextColor": "#e2e8f0", "primaryBorderColor": "#38bdf8", "secondaryColor": "#0f172a", "tertiaryColor": "#334155", "lineColor": "#64748b", "textColor": "#e2e8f0"}, "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 48, "rankSpacing": 64, "padding": 14, "diagramPadding": 10, "useMaxWidth": true}}}%%
+flowchart LR
+    %% Section: System Prompt Queryenginepy (2 nodes, 1 edges)
+    queryengine_build_system_prompt_6ece5480("build_system_prompt()<br/><small>queryEngine.py</small>")
+    queryengine_rationale_33_a369adb6("Builds the system prompt by injecting:...<br/><small>queryEngine.py</small>")
+    queryengine_build_system_prompt_6ece5480 -->|explains| queryengine_rationale_33_a369adb6
+    class queryengine_build_system_prompt_6ece5480 function;
+    class queryengine_rationale_33_a369adb6 concept;
+    classDef entry fill:#422006,stroke:#fbbf24,color:#fde68a,stroke-width:1px;
+    classDef api fill:#450a0a,stroke:#f87171,color:#fee2e2,stroke-width:1px;
+    classDef async fill:#2e1065,stroke:#a78bfa,color:#ede9fe,stroke-width:1px;
+    classDef klass fill:#064e3b,stroke:#34d399,color:#d1fae5,stroke-width:1px;
+    classDef ui fill:#831843,stroke:#f472b6,color:#fce7f3,stroke-width:1px;
+    classDef module fill:#172554,stroke:#60a5fa,color:#dbeafe,stroke-width:1px;
+    classDef test fill:#3f3f46,stroke:#a1a1aa,color:#f4f4f5,stroke-width:1px;
+    classDef concept fill:#292524,stroke:#a8a29e,color:#fafaf9,stroke-dasharray:4 3;
+    classDef function fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:1px;
+</div>
+
+<h3>Call Details</h3>
+<table class="call-table">
+<tr>
+  <th style="width:5%">#</th>
+  <th style="width:28%">Node</th>
+  <th style="width:10%">Type</th>
+  <th style="width:17%">Caller</th>
+  <th style="width:20%">Callees</th>
+  <th style="width:20%">Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><code>build_system_prompt()</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-func">Function</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Builds structured prompts for model calls.</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td><code>Builds the system prompt by injecting:     1. Business glossary     2. Table des</code><br><small style="color:var(--muted)">queryEngine.py</small></td>
+  <td><span class="tag tag-func">Concept</span></td>
+  <td>External entry / no inbound edge</td>
+  <td>No direct outbound edge</td>
+  <td>Design note for Builds the system prompt by injecting:     1. Business glossary     2. Table des.</td>
+</tr>
+</table>
+
+<div class="grid">
+  <div class="card">
+    <h4>Key Files</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><th>File</th><th>Coverage</th></tr>
+      <tr><td><code>queryEngine.py</code></td><td>2 nodes</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Design Notes</h4>
+    <p>This section comes from graphify community clustering. Relationship summary: explains x1. The diagram prioritizes high-confidence calls or usage relationships; the table keeps the broader node inventory.</p>
+  </div>
+</div>
+<hr>
+
+<h2 id="stats">Project Statistics</h2>
+
+<div class="grid">
+  <div class="card">
+    <h4>Graph</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><td>Nodes</td><td>28</td></tr>
+      <tr><td>Edges</td><td>50</td></tr>
+      <tr><td>Hyperedges</td><td>0</td></tr>
+      <tr><td>Communities</td><td>6</td></tr>
+      <tr><td>Documented Sections</td><td>6</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Edge Confidence</h4>
+    <table style="width:100%;font-size:0.85rem;">
+      <tr><td>EXTRACTED</td><td>50</td></tr>
+      <tr><td>INFERRED</td><td>0</td></tr>
+      <tr><td>AMBIGUOUS</td><td>0</td></tr>
+    </table>
+  </div>
+</div>
+
+<div style="text-align:center; padding:40px 0; color: var(--muted); font-size:0.9rem;">
+  <p>DistributionDataPrototype — Architecture Documentation</p>
+  <p>Generated: 2026-06-23 14:49 UTC · graphify callflow-html</p>
+</div>
+
+</div><!-- .container -->
+
+<script>
+(function () {
+  const mermaidConfig = {
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose',
+    flowchart: { htmlLabels: true, useMaxWidth: true },
+    themeVariables: {
+      primaryColor: '#1e293b',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#38bdf8',
+      secondaryColor: '#0f172a',
+      tertiaryColor: '#334155',
+      lineColor: '#64748b',
+      textColor: '#e2e8f0',
+    }
+  };
+
+  mermaid.initialize(mermaidConfig);
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function enhanceMermaidDiagrams() {
+    document.querySelectorAll('.mermaid').forEach((container) => {
+      if (container.dataset.zoomReady === 'true') return;
+      const svg = container.querySelector('svg');
+      if (!svg) return;
+
+      container.dataset.zoomReady = 'true';
+      container.classList.add('is-enhanced');
+
+      const viewport = document.createElement('div');
+      viewport.className = 'mermaid-viewport';
+      svg.parentNode.insertBefore(viewport, svg);
+      viewport.appendChild(svg);
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'mermaid-toolbar';
+      toolbar.innerHTML = [
+        '<button type="button" data-action="zoom-out" title="Zoom out">-</button>',
+        '<span class="zoom-level" data-role="level">100%</span>',
+        '<button type="button" data-action="zoom-in" title="Zoom in">+</button>',
+        '<button type="button" data-action="fit" title="Fit width">Fit</button>',
+        '<button type="button" data-action="reset" title="Reset view">Reset</button>'
+      ].join('');
+      container.insertBefore(toolbar, viewport);
+
+      const state = { scale: 1, x: 0, y: 0, dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 };
+      const level = toolbar.querySelector('[data-role="level"]');
+
+      function applyTransform() {
+        svg.style.transform = `translate(${state.x}px, ${state.y}px) scale(${state.scale})`;
+        level.textContent = `${Math.round(state.scale * 100)}%`;
+      }
+
+      function zoomBy(delta) {
+        state.scale = clamp(state.scale + delta, 0.25, 3);
+        applyTransform();
+      }
+
+      function reset() {
+        state.scale = 1;
+        state.x = 0;
+        state.y = 0;
+        applyTransform();
+      }
+
+      function fitWidth() {
+        const rawWidth = svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width
+          ? svg.viewBox.baseVal.width
+          : svg.getBoundingClientRect().width / state.scale;
+        if (!rawWidth) {
+          reset();
+          return;
+        }
+        state.scale = clamp((viewport.clientWidth - 48) / rawWidth, 0.25, 1.4);
+        state.x = 0;
+        state.y = 0;
+        applyTransform();
+      }
+
+      toolbar.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const action = button.dataset.action;
+        if (action === 'zoom-in') zoomBy(0.15);
+        if (action === 'zoom-out') zoomBy(-0.15);
+        if (action === 'fit') fitWidth();
+        if (action === 'reset') reset();
+      });
+
+      viewport.addEventListener('wheel', (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        zoomBy(event.deltaY < 0 ? 0.1 : -0.1);
+      }, { passive: false });
+
+      viewport.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        state.dragging = true;
+        state.startX = event.clientX;
+        state.startY = event.clientY;
+        state.originX = state.x;
+        state.originY = state.y;
+        viewport.classList.add('is-dragging');
+        viewport.setPointerCapture(event.pointerId);
+      });
+
+      viewport.addEventListener('pointermove', (event) => {
+        if (!state.dragging) return;
+        state.x = state.originX + event.clientX - state.startX;
+        state.y = state.originY + event.clientY - state.startY;
+        applyTransform();
+      });
+
+      function endDrag(event) {
+        if (!state.dragging) return;
+        state.dragging = false;
+        viewport.classList.remove('is-dragging');
+        if (viewport.hasPointerCapture(event.pointerId)) {
+          viewport.releasePointerCapture(event.pointerId);
+        }
+      }
+
+      viewport.addEventListener('pointerup', endDrag);
+      viewport.addEventListener('pointercancel', endDrag);
+      applyTransform();
+    });
+  }
+
+  function renderMermaid() {
+    const result = mermaid.run
+      ? mermaid.run({ querySelector: '.mermaid' })
+      : Promise.resolve();
+    Promise.resolve(result)
+      .then(enhanceMermaidDiagrams)
+      .catch((error) => {
+        console.error('Mermaid render failed:', error);
+        enhanceMermaidDiagrams();
+      });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', renderMermaid);
+  } else {
+    renderMermaid();
+  }
+})();
+</script>
+
+</body>
+</html>

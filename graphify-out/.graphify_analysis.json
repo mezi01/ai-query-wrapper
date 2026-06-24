@@ -1,0 +1,154 @@
+{
+  "communities": {
+    "0": [
+      "seeddata",
+      "seeddata_build_accounts",
+      "seeddata_build_losses",
+      "seeddata_build_policies",
+      "seeddata_build_quotes",
+      "seeddata_build_submission_groups",
+      "seeddata_build_submissions",
+      "seeddata_make_dirty",
+      "seeddata_rationale_1",
+      "seeddata_seed"
+    ],
+    "1": [
+      "cleandata",
+      "cleandata_clean_accounts",
+      "cleandata_clean_brokers",
+      "cleandata_main",
+      "cleandata_show_dirty_data"
+    ],
+    "2": [
+      "queryengine",
+      "queryengine_ask",
+      "queryengine_format_results",
+      "queryengine_rationale_1",
+      "queryengine_run_sql"
+    ],
+    "3": [
+      "anthropic",
+      "queryengine_demo_mode",
+      "queryengine_get_sql_from_claude"
+    ],
+    "4": [
+      "queryengine_interactive_mode",
+      "queryengine_load_data_dictionary",
+      "queryengine_main"
+    ],
+    "5": [
+      "queryengine_build_system_prompt",
+      "queryengine_rationale_33"
+    ]
+  },
+  "cohesion": {
+    "0": 0.35555555555555557,
+    "1": 0.7,
+    "2": 0.6,
+    "3": 0.6666666666666666,
+    "4": 0.6666666666666666,
+    "5": 1.0
+  },
+  "gods": [
+    {
+      "id": "queryengine_ask",
+      "label": "ask()",
+      "degree": 8
+    },
+    {
+      "id": "queryengine_main",
+      "label": "main()",
+      "degree": 7
+    },
+    {
+      "id": "seeddata_seed",
+      "label": "seed()",
+      "degree": 7
+    },
+    {
+      "id": "cleandata_main",
+      "label": "main()",
+      "degree": 4
+    },
+    {
+      "id": "queryengine_interactive_mode",
+      "label": "interactive_mode()",
+      "degree": 4
+    },
+    {
+      "id": "queryengine_demo_mode",
+      "label": "demo_mode()",
+      "degree": 4
+    },
+    {
+      "id": "queryengine_build_system_prompt",
+      "label": "build_system_prompt()",
+      "degree": 3
+    },
+    {
+      "id": "queryengine_get_sql_from_claude",
+      "label": "get_sql_from_claude()",
+      "degree": 3
+    },
+    {
+      "id": "seeddata_build_accounts",
+      "label": "build_accounts()",
+      "degree": 3
+    },
+    {
+      "id": "cleandata_show_dirty_data",
+      "label": "show_dirty_data()",
+      "degree": 2
+    }
+  ],
+  "surprises": [
+    {
+      "source": "main()",
+      "target": "build_system_prompt()",
+      "source_files": [
+        "queryEngine.py",
+        "queryEngine.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 5 \u2192 community 4"
+    },
+    {
+      "source": "ask()",
+      "target": "get_sql_from_claude()",
+      "source_files": [
+        "queryEngine.py",
+        "queryEngine.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 3 \u2192 community 2"
+    },
+    {
+      "source": "interactive_mode()",
+      "target": "Anthropic",
+      "source_files": [
+        "queryEngine.py",
+        ""
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "note": "Bridges community 3 \u2192 community 4"
+    },
+    {
+      "source": "interactive_mode()",
+      "target": "ask()",
+      "source_files": [
+        "queryEngine.py",
+        "queryEngine.py"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 2 \u2192 community 4"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}
