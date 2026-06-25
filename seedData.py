@@ -104,7 +104,7 @@ LOB_DIVISION_MAP = {
     "TRIA": ["Wholesale"],
     "Umbrella": ["Religious", "Non-Profit Package", "Habitational", "Wholesale", "Other"],
     "Wind/Hail Deductible Buy Back": ["Wholesale", "Other"],
-    "Worker's Compensation": ["Religious", "Non-Profit Package", "Wholesale", "Other", "Workers Compensation"],
+    "Worker's Compensation": ["Religious", "Non-Profit Package", "Wholesale", "Other", "Worker's Compensation"],
 }
 
 """
@@ -374,7 +374,7 @@ DIVISIONS = [
     "Habitational",
     "Non-Profit Package",
     "Religious",
-    "Workers Compensation",
+    "Worker's Compensation",
     "Other"
 ]
 

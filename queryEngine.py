@@ -14,10 +14,16 @@ Setup:
 import sqlite3
 import json
 import os
+import sys
 import argparse
 import textwrap
 from anthropic import Anthropic
-from dotenv import load_dotenv 
+from dotenv import load_dotenv
+
+# Ensure UTF-8 output on Windows
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 load_dotenv()
 
 DB_PATH              = "prototype.db"
@@ -98,10 +104,15 @@ EXAMPLE QUESTIONS → SQL
 RULES:
 - Query directly from tables — there are no views in this database
 - For hit ratio: use quotes table, quote_status = 'bound'
+- To detect a bound quote: always use quote_status = 'bound' on the quotes table —
+                           NEVER join to policies and check policy_id IS NOT NULL
 - For loss ratio: join losses to policies via policy_id,
                   join policies to submissions via control_number
 - For carrier appetite: query quotes grouped by carrier_id,
                         calculate decline_rate from quote_status = 'declined'
+- When ranking by decline behavior: order by decline_rate_pct (percentage) by default —
+                                    only order by absolute declined count if the user
+                                    explicitly asks for it
 - NEVER use YEAR() — use strftime('%Y', column) instead
 - NEVER use GETDATE() — use date('now') instead
 - Return clean readable SQL with aliases
