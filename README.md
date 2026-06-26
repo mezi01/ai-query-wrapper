@@ -6,7 +6,7 @@ A natural language query engine for commercial insurance CRM data, built on Clau
 
 ## What It Does
 
-Insurance data is typically gated behind technical resources and analyst availability. Answering a question like *"which carriers have the highest decline rates for General Liability?"* typically requires a data analyst, a SQL query, and a wait. This project removes that dependency.
+  Answering a question like *"which carriers have the highest decline rates for General Liability?"* typically requires a data analyst, a SQL query, and a wait. This project removes that dependency.
 
 ```
   Your question: Which accounts have the worst loss ratios?
