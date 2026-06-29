@@ -28,6 +28,8 @@ load_dotenv()
 
 DB_PATH              = "prototype.db"
 DICT_PATH            = "dataDict_Editing.json"
+#APPETITE_LIVE_PATH   = "carrierAppetite_live.json"
+#APPETITE_STATIC_PATH = "carrierAppetite_static.json"
 MODEL                = "claude-sonnet-4-6"
 CONVERSATION_HISTORY = []
 
@@ -36,8 +38,73 @@ def load_data_dictionary() -> dict:
     with open(DICT_PATH) as f:
         return json.load(f)
 
+def load_semantic_model() -> dict:
+    with open(DICT_PATH) as f:
+        return json.load(f)
+    
+""" def load_appetite() -> dict:
+    """Load live appetite file if available, fall back to static."""
+    for path in (APPETITE_LIVE_PATH, APPETITE_STATIC_PATH):
+        if os.path.exists(path):
+            with open(path) as f:
+                return json.load(f)
+    return {}
 
-def build_system_prompt(dd: dict) -> str:
+
+def build_appetite_context(appetite: dict) -> str:
+    """
+    Formats carrier appetite data for injection into the system prompt.
+    Only includes carriers that have been profiled (non-empty preferred_divisions).
+    """
+    carriers = appetite.get("carriers", {})
+    if not carriers:
+        return ""
+
+    lines = []
+    for cid, c in carriers.items():
+        if not c.get("preferred_divisions") and not c.get("preferred_lobs"):
+            continue
+        parts = [f"{cid} | {c['carrier_name']}"]
+        if c.get("market_type"):
+            parts.append(f"market={c['market_type']}")
+        if c.get("am_best_rating"):
+            parts.append(f"AM Best={c['am_best_rating']}")
+        if c.get("preferred_divisions"):
+            parts.append(f"divisions={', '.join(c['preferred_divisions'])}")
+        if c.get("preferred_lobs"):
+            parts.append(f"prefers=[{', '.join(c['preferred_lobs'][:5])}{'...' if len(c['preferred_lobs']) > 5 else ''}]")
+        if c.get("prohibited_lobs"):
+            parts.append(f"WILL NOT WRITE=[{', '.join(c['prohibited_lobs'])}]")
+        if c.get("prohibited_classes"):
+            parts.append(f"prohibited classes=[{', '.join(c['prohibited_classes'][:3])}]")
+        geo = c.get("geographic_restrictions", {})
+        excl = geo.get("excluded_states", [])
+        if excl:
+            parts.append(f"excluded states={excl}")
+        thresholds = c.get("size_thresholds", {})
+        if thresholds.get("min_premium"):
+            parts.append(f"min premium=${thresholds['min_premium']:,}")
+        if thresholds.get("preferred_account_tiers"):
+            parts.append(f"tiers={thresholds['preferred_account_tiers']}")
+        if c.get("appetite_notes"):
+            parts.append(f"notes: {c['appetite_notes']}")
+        lines.append(" | ".join(parts))
+
+    if not lines:
+        return ""
+
+    last_refreshed = appetite.get("_meta", {}).get("last_refreshed", "unknown")
+    return (
+        f"\n═══════════════════════════════\n"
+        f"CARRIER APPETITE GUIDE (refreshed {last_refreshed})\n"
+        f"═══════════════════════════════\n"
+        f"Use this to answer questions about which carriers to approach, avoid, or compare.\n"
+        f"Preferred divisions and LOBs reflect stated carrier appetite — not historical bind rates.\n\n"
+        + "\n".join(lines)
+    )
+"""
+
+def build_system_prompt(dd: dict, appetite: dict | None = None) -> str:
     """
     Builds the system prompt by injecting:
     1. Business glossary
@@ -75,6 +142,9 @@ def build_system_prompt(dd: dict) -> str:
         f"Q: {ex['question']}\nSQL: {ex['sql']}"
         for ex in dd["example_questions_and_sql"]
     )
+
+    # ── Layer 4: Carrier appetite guide ──────────────────────
+    appetite_text = build_appetite_context(appetite or {})
 
     return f"""You are an expert insurance data analyst. You help users query an insurance CRM database using plain English.
 
@@ -118,6 +188,10 @@ RULES:
 - Return clean readable SQL with aliases
 - Limit to 20 rows unless user specifies otherwise
 - If the question cannot be answered, say: -- CANNOT_ANSWER: [reason]
+- For carrier appetite questions: use the CARRIER APPETITE GUIDE above to filter or rank carriers
+  by stated preference, prohibited classes, or geographic restrictions — then validate against
+  the quotes table for historical behavior
+{appetite_text}
 """
 
 
@@ -246,7 +320,8 @@ def main():
 
     client        = Anthropic(api_key=api_key)
     dd            = load_data_dictionary()
-    system_prompt = build_system_prompt(dd)
+    appetite      = load_appetite()
+    system_prompt = build_system_prompt(dd, appetite)
 
     if args.question:
         ask(args.question, system_prompt, client)
