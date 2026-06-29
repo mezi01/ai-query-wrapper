@@ -35,25 +35,120 @@
             "how_to_identify": "quote_status = 'bound'"
 
         },
-        "ims_status": {
-            "definition": "Tracls where a submission is in the pipeline from intake to policy expiration.",
+        "sub_status": {
+            "definition": "Tracks where a submission is in the pipeline from intake to policy expiration.",
             "key_table": "submissions",
             "values": {
-                "submitted": "Sent to carriers, awaiting response",
-                "in rating": "Carrier is actively pricing the risk",
-                "underwriting review": "Carrier needs additional information",
-                "referred to carrier": "Broker escalated directly to carrier underwriter",
-                "bound": "Coverage placed, policy active",
-                "bound-issued": "Bound and policy documents formally issued",
-                "declined": "Carrier refused to quote",
-                "not taken up": "Carrier quoted but client chose another",
-                "lost": "Submission did not result in a bind, manually marked",
-                "expired": "Policy term ended",
-                "cancelled": "Policy terminated early",
-                "pending cancellation": "In process of being cancelled",
-                "not quoted": "Never sent to market"
+                "Submitted": "Sent to carriers, awaiting response",
+                "Additional Information Request": "Underwriter has requested more data before proceeding; submission is on hold pending broker response",
+                "Additional Information Received": "Broker has responded to the information request; submission is back in active review",
+                "In Rating": "Carrier is actively pricing the risk",
+                "Indicated": "Carrier has provided a non-binding preliminary price estimate; not a formal quote",
+                "Underwriting Review": "Carrier needs additional underwriting scrutiny before quoting or declining",
+                "Referred to Carrier": "Broker escalated directly to carrier underwriter",
+                "Quoted": "Carrier hsa returned a formal quote; awaiting client decision",
+                "Quoted not Bound": "Carrier quoted but the submission ultimately did not bind; used to distinguish from active quote submissions",
+                "Bound": "Coverage placed, policy active",
+                "Bound-Issued": "Bound and policy documents formally issued",
+                "Declined": "Carrier refused to quote",
+                "Not Taken Up": "Carrier quoted but client chose another",
+                "Lost": "Submission did not result in a bind, manually marked",
+                "Expired": "Policy term ended",
+                "Cancelled": "Policy terminated early",
+                "Pending Cancellation": "In process of being cancelled",
+                "Not Quoted": "Never sent to market",
+                "Unbound Correction": "A correection to a previously bound submission that has been reversed or voided",
+                "Unbound Endorsement": "A mid-term policy change that has been walked back before taking effect",
+                "Unbound Internal Correction": "An internal administrative correction that does not affect the insured's coverage",
+                "Lost on BOR": "Lost due to a Broker of Record change; another broker took over the account",
+                "Cancelled by Correction": "Policy cancellation triggered by an administrative correction rather than a client or underwriter decision",
+                "Pending Reinstatement": "A previously cancelled policy is being reviewed for reactivation",
+                "Non-Renewed": "Policy reached expiration and the carrier or client chose not to renew",
+                "Unknown Status": "Status could not be determined from available data; treat as a data quality flag and exclude from ratio calculations unless explicitly investigating data completeness"    
+            },
+        "semantic_groups": {
+            "open_pipeline": {
+                "label": "Open / Pipeline",
+                "description": "Submissions still actively moving through the underwriting process. Use this group as the default filter for pipeline queries.",
+                "sql_hint": "WHERE ims_status IN ('Submitted', 'In Rating', 'Additional Information Request', 'Additional Information Received', 'Indicated', 'Referred to Carrier', 'Underwriting Review')",
+                "values": ["Submitted", "In Rating", "Additional Information Request", "Additional Information Received", "Indicated", "Referred to Carrier", "Underwriting Review"]
+        },
+            "bound_active": {
+                "label": "Bound / Active",
+                "description": "Coverage is placed and the policy is in force.",
+                "sql_hint": "WHERE ims_status IN ('Bound', 'Bound - Issued')",
+                "values": ["Bound", "Bound - Issued"]
+        },
+            "closed_lost": {
+                "label": "Closed / Lost",
+                "description": "Submission will not result in new bound business.",
+                "sql_hint": "WHERE ims_status IN ('Declined', 'Not Quoted', 'Not Taken Up', 'Lost', 'Lost on BOR', 'Non-Renewed')",
+                "values": ["Declined", "Not Quoted", "Not Taken Up", "Lost", "Lost on BOR", "Non-Renewed"]
+        },
+            "exclude_from_ratios": {
+            "label": "Exclude from Ratio Calculations",
+            "description": "Administrative or correction statuses that should not appear in hit ratio, decline rate, or loss ratio denominators. Their presence indicates a data quality or workflow issue, not a placement outcome.",
+            "sql_hint": "WHERE ims_status NOT IN ('Unknown Status', 'Unbound Correction', 'Unbound Endorsement', 'Unbound Internal Correction')",
+            "values": ["Unknown Status", "Unbound Correction", "Unbound Endorsement", "Unbound Internal Correction"]
+        }
+
             }
         },
+
+        "quote_status": {
+            "Quoted": "Carrier hsa returned a formal quote; awaiting client decision",
+            "Quoted not Bound": "Carrier quoted but the submission ultimately did not bind; used to distinguish from active quote submissions",
+            "Bound": "Coverage placed, policy active",
+            "Bound-Issued": "Bound and policy documents formally issued",
+            "Declined": "Carrier refused to quote",
+            "Not Taken Up": "Carrier quoted but client chose another",
+            "Lost": "Submission did not result in a bind, manually marked",
+            "semantic_groups": {
+                "active": {
+                    "label": "Active / Pending Decision",
+                    "sql_hint": "WHERE quote_status IN ('quoted')",
+                    "values": ["quoted"]
+                },
+                "bound": {
+                    "label": "Bound",
+                    "description": "The one quote per submission that resulted in placement. Use this for hit ratio numerator.",
+                    "sql_hint": "WHERE quote_status = 'bound'",
+                    "values": ["bound"]
+                },
+                "closed_no_placement": {
+                    "label": "Closed Without Placement",
+                    "description": "Use for decline rate and loss analysis. Includes all quotes that did not result in a bind.",
+                    "sql_hint": "WHERE quote_status IN ('declined', 'not taken up', 'lost', 'not quoted')",
+                    "values": ["declined", "not taken up", "lost", "not quoted"]
+                }
+            
+            }
+        },
+/*
+        "loss_status": {
+            "values": {
+                "open": "Claim is active; investigation or payment is ongoing",
+                "closed": "Claim has been fully resolved; no further payments expected",
+                "closed without payment": "Claim was investigated but no payment was made; coverage did not apply or claim was not substantiated",
+                "reopened": "A previously closed claim has been reopened due to new information or additional damages",
+                "pending": "Claim has been filed but has not yet entered active investigation"
+            },
+        "semantic_groups": {
+            "active": {
+                "label": "Active Claims",
+                "description": "Claims still being worked. Reserved amounts are live and subject to change. Use incurred_amount for loss ratio on these.",
+                "sql_hint": "WHERE loss_status IN ('open', 'reopened', 'pending')",
+                "values": ["open", "reopened", "pending"]
+            },
+            "closed": {
+                "label": "Closed Claims",
+                "description": "Claims fully resolved. Paid amount is final. Use for historical loss analysis.",
+                "sql_hint": "WHERE loss_status IN ('closed', 'closed without payment')",
+                "values": ["closed", "closed without payment"]
+            }
+        }
+        }, 
+*/
         "priority": {
             "definition": "A submission quality score from a 0-5 assigned by the broker indicating how complete and bindable the submission is. Higher number means a higher quality, more complete submission.",
             "key_table": "submissions",
