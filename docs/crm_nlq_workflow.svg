@@ -1,0 +1,147 @@
+<svg width="780" height="660" viewBox="0 0 780 660" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">
+  <title>CRM NLQ Project Workflow</title>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrow-dashed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#B4B2A9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="780" height="660" fill="#ffffff"/>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- LAYER LABELS (far left, x=14)              -->
+  <!-- ═══════════════════════════════════════════ -->
+  <text transform="rotate(-90,14,84)"  x="14" y="84"  text-anchor="middle" font-size="11" fill="#888780">Data</text>
+  <text transform="rotate(-90,14,196)" x="14" y="196" text-anchor="middle" font-size="11" fill="#888780">Validation</text>
+  <text transform="rotate(-90,14,400)" x="14" y="400" text-anchor="middle" font-size="11" fill="#888780">Schema</text>
+  <text transform="rotate(-90,14,520)" x="14" y="520" text-anchor="middle" font-size="11" fill="#888780">Query Engine</text>
+  <text transform="rotate(-90,14,622)" x="14" y="622" text-anchor="middle" font-size="11" fill="#888780">Visualization</text>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- LAYER 1: DATA                              -->
+  <!-- ═══════════════════════════════════════════ -->
+  <rect x="280" y="50" width="220" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1"/>
+  <text x="390" y="73" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">seedData.py</text>
+  <text x="390" y="93" text-anchor="middle" font-size="12" fill="#0F6E56">Synthetic CRM data generation</text>
+
+  <!-- L1 → L2 -->
+  <line x1="390" y1="106" x2="390" y2="138" stroke="#888780" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- LAYER 2: VALIDATION                        -->
+  <!-- ═══════════════════════════════════════════ -->
+  <rect x="280" y="140" width="220" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1"/>
+  <text x="390" y="163" text-anchor="middle" font-size="14" font-weight="600" fill="#085041">cleanData.py</text>
+  <text x="390" y="183" text-anchor="middle" font-size="12" fill="#0F6E56">Validation &amp; sanitization</text>
+
+  <!-- L2 → L3 fork line -->
+  <line x1="390" y1="196" x2="390" y2="224" stroke="#888780" stroke-width="1"/>
+  <!-- horizontal fork -->
+  <line x1="196" y1="224" x2="584" y2="224" stroke="#888780" stroke-width="1"/>
+  <!-- left branch down -->
+  <line x1="196" y1="224" x2="196" y2="252" stroke="#888780" stroke-width="1" marker-end="url(#arrow)"/>
+  <!-- right branch down -->
+  <line x1="584" y1="224" x2="584" y2="252" stroke="#888780" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- LAYER 3: SCHEMA — two parent nodes         -->
+  <!-- ═══════════════════════════════════════════ -->
+
+  <!-- LEFT: dataDict_Editing.json -->
+  <rect x="60" y="254" width="272" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="1"/>
+  <text x="196" y="277" text-anchor="middle" font-size="14" font-weight="600" fill="#3C3489">dataDict_Editing.json</text>
+  <text x="196" y="297" text-anchor="middle" font-size="12" fill="#534AB7">Data dictionary &amp; glossary</text>
+
+  <!-- LEFT child fork line -->
+  <line x1="196" y1="310" x2="196" y2="334" stroke="#888780" stroke-width="0.8"/>
+  <line x1="80" y1="334" x2="312" y2="334" stroke="#888780" stroke-width="0.8"/>
+
+  <!-- LEFT child 1: Business Glossary -->
+  <line x1="80" y1="334" x2="80" y2="350" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <rect x="36" y="352" width="88" height="52" rx="6" fill="#F5F4FE" stroke="#A09BE0" stroke-width="0.8"/>
+  <text x="80" y="371" text-anchor="middle" font-size="10" font-weight="600" fill="#534AB7">Business</text>
+  <text x="80" y="385" text-anchor="middle" font-size="10" font-weight="600" fill="#534AB7">Glossary</text>
+  <text x="80" y="398" text-anchor="middle" font-size="9" fill="#7B77CC">KPI definitions</text>
+
+  <!-- LEFT child 2: Table Schemas -->
+  <line x1="196" y1="334" x2="196" y2="350" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <rect x="148" y="352" width="96" height="52" rx="6" fill="#F5F4FE" stroke="#A09BE0" stroke-width="0.8"/>
+  <text x="196" y="368" text-anchor="middle" font-size="10" font-weight="600" fill="#534AB7">Table Schemas</text>
+  <text x="196" y="382" text-anchor="middle" font-size="9" fill="#7B77CC">Tables, columns,</text>
+  <text x="196" y="395" text-anchor="middle" font-size="9" fill="#7B77CC">foreign keys</text>
+
+  <!-- LEFT child 3: Example Q→SQL -->
+  <line x1="312" y1="334" x2="312" y2="350" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <rect x="260" y="352" width="104" height="52" rx="6" fill="#F5F4FE" stroke="#A09BE0" stroke-width="0.8"/>
+  <text x="312" y="378" text-anchor="middle" font-size="10" font-weight="600" fill="#534AB7">Example Q→SQL</text>
+
+  <!-- RIGHT: semantic_model.json -->
+  <rect x="448" y="254" width="272" height="56" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="1"/>
+  <text x="584" y="277" text-anchor="middle" font-size="14" font-weight="600" fill="#3C3489">semantic_model.json</text>
+  <text x="584" y="297" text-anchor="middle" font-size="12" fill="#534AB7">Intent &amp; metric resolution</text>
+
+  <!-- RIGHT child fork line -->
+  <line x1="584" y1="310" x2="584" y2="334" stroke="#888780" stroke-width="0.8"/>
+  <line x1="488" y1="334" x2="680" y2="334" stroke="#888780" stroke-width="0.8"/>
+
+  <!-- RIGHT child 1: Synonym Map -->
+  <line x1="488" y1="334" x2="488" y2="350" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <rect x="440" y="352" width="96" height="52" rx="6" fill="#F5F4FE" stroke="#A09BE0" stroke-width="0.8"/>
+  <text x="488" y="368" text-anchor="middle" font-size="10" font-weight="600" fill="#534AB7">Synonym Map</text>
+  <text x="488" y="382" text-anchor="middle" font-size="9" fill="#7B77CC">Alternate user</text>
+  <text x="488" y="395" text-anchor="middle" font-size="9" fill="#7B77CC">phrasings</text>
+
+  <!-- RIGHT child 2: Intent Patterns -->
+  <line x1="584" y1="334" x2="584" y2="350" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <rect x="536" y="352" width="96" height="52" rx="6" fill="#F5F4FE" stroke="#A09BE0" stroke-width="0.8"/>
+  <text x="584" y="368" text-anchor="middle" font-size="10" font-weight="600" fill="#534AB7">Intent Patterns</text>
+  <text x="584" y="382" text-anchor="middle" font-size="9" fill="#7B77CC">Vague query</text>
+  <text x="584" y="395" text-anchor="middle" font-size="9" fill="#7B77CC">resolution</text>
+
+  <!-- RIGHT child 3: Metric Definitions -->
+  <line x1="680" y1="334" x2="680" y2="350" stroke="#888780" stroke-width="0.8" marker-end="url(#arrow)"/>
+  <rect x="628" y="352" width="104" height="52" rx="6" fill="#F5F4FE" stroke="#A09BE0" stroke-width="0.8"/>
+  <text x="680" y="378" text-anchor="middle" font-size="10" font-weight="600" fill="#534AB7">Metric Definitions</text>
+
+  <!-- Schema children → Query Engine: left branch -->
+  <line x1="196" y1="404" x2="196" y2="470" stroke="#888780" stroke-width="0.8" stroke-dasharray="4 3"/>
+  <line x1="196" y1="470" x2="340" y2="470" stroke="#888780" stroke-width="0.8" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- Schema children → Query Engine: right branch -->
+  <line x1="584" y1="404" x2="584" y2="470" stroke="#888780" stroke-width="0.8" stroke-dasharray="4 3"/>
+  <line x1="584" y1="470" x2="440" y2="470" stroke="#888780" stroke-width="0.8" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- LAYER 4: QUERY ENGINE                      -->
+  <!-- ═══════════════════════════════════════════ -->
+  <rect x="230" y="480" width="320" height="80" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="1"/>
+  <text x="390" y="508" text-anchor="middle" font-size="14" font-weight="600" fill="#712B13">queryEngine.py</text>
+  <text x="390" y="526" text-anchor="middle" font-size="12" fill="#993C1D">NL → Claude API → SQL generation</text>
+  <text x="390" y="544" text-anchor="middle" font-size="12" fill="#993C1D">SQL execution · error handling · results</text>
+
+  <!-- Claude API callout bubble -->
+  <rect x="570" y="490" width="140" height="44" rx="6" fill="#FDF6F3" stroke="#CFA28F" stroke-width="0.8" stroke-dasharray="4 3"/>
+  <text x="640" y="515" text-anchor="middle" font-size="10" font-weight="600" fill="#993C1D">Claude API</text>
+  <line x1="550" y1="512" x2="568" y2="512" stroke="#CFA28F" stroke-width="0.8" stroke-dasharray="3 2" marker-end="url(#arrow-dashed)"/>
+
+  <!-- L4 → L5 -->
+  <line x1="390" y1="560" x2="390" y2="592" stroke="#888780" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- LAYER 5: VISUALIZATION                     -->
+  <!-- ═══════════════════════════════════════════ -->
+  <rect x="230" y="594" width="320" height="56" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="1"/>
+  <text x="390" y="617" text-anchor="middle" font-size="14" font-weight="600" fill="#0C447C">Microsoft Excel</text>
+  <text x="390" y="637" text-anchor="middle" font-size="12" fill="#185FA5">Visualization &amp; reporting layer</text>
+
+  <!-- Changed from Tableau note -->
+  <rect x="570" y="600" width="170" height="38" rx="6" fill="#FFF8E6" stroke="#C9960A" stroke-width="0.8"/>
+  <text x="655" y="622" text-anchor="middle" font-size="9" font-weight="600" fill="#8A6400">⚠ Changed from Tableau</text>
+  <line x1="550" y1="618" x2="568" y2="618" stroke="#C9960A" stroke-width="0.8" marker-end="url(#arrow-dashed)"/>
+
+</svg>
