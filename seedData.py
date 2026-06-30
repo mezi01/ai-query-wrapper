@@ -104,7 +104,7 @@ LOB_DIVISION_MAP = {
     "TRIA": ["Wholesale"],
     "Umbrella": ["Religious", "Non-Profit Package", "Habitational", "Wholesale", "Other"],
     "Wind/Hail Deductible Buy Back": ["Wholesale", "Other"],
-    "Worker's Compensation": ["Religious", "Non-Profit Package", "Wholesale", "Other", "Worker's Compensation"],
+    "Worker's Compensation": ["Religious", "Non-Profit Package", "Wholesale", "Other", "Workers Compensation"],
 }
 
 """
@@ -349,7 +349,6 @@ QUOTE_STATUSES = [
     "declined",
     "not taken up",
     "lost"
-
 ]
 
 POLICY_STATUSES = [
@@ -361,12 +360,11 @@ POLICY_STATUSES = [
 ]
 
 LOSS_STATUSES = [
-    "lost",
-    "not taken up",
-    "declined",
-    "pending cancellation",
-    "expired",
-    "cancelled"
+    "open",
+    "closed",
+    "closed without payment",
+    "reopened",
+    "litigation"
 ]
 
 DIVISIONS = [
@@ -374,7 +372,7 @@ DIVISIONS = [
     "Habitational",
     "Non-Profit Package",
     "Religious",
-    "Worker's Compensation",
+    "Workers Compensation",
     "Other"
 ]
 
@@ -494,7 +492,7 @@ def build_losses(policies):
                     paid_amount,
                     reserved_amount,
                     incurred_amount,
-                    random.choices(LOSS_STATUSES, weights = [32, 10, 54, 0.1, 0.03, 3], k=1)[0]
+                    random.choices(LOSS_STATUSES, weights = [40, 35, 15, 5, 5], k=1)[0]
                 ))
         return rows
     

@@ -124,31 +124,7 @@
             
             }
         },
-/*
-        "loss_status": {
-            "values": {
-                "open": "Claim is active; investigation or payment is ongoing",
-                "closed": "Claim has been fully resolved; no further payments expected",
-                "closed without payment": "Claim was investigated but no payment was made; coverage did not apply or claim was not substantiated",
-                "reopened": "A previously closed claim has been reopened due to new information or additional damages",
-                "pending": "Claim has been filed but has not yet entered active investigation"
-            },
-        "semantic_groups": {
-            "active": {
-                "label": "Active Claims",
-                "description": "Claims still being worked. Reserved amounts are live and subject to change. Use incurred_amount for loss ratio on these.",
-                "sql_hint": "WHERE loss_status IN ('open', 'reopened', 'pending')",
-                "values": ["open", "reopened", "pending"]
-            },
-            "closed": {
-                "label": "Closed Claims",
-                "description": "Claims fully resolved. Paid amount is final. Use for historical loss analysis.",
-                "sql_hint": "WHERE loss_status IN ('closed', 'closed without payment')",
-                "values": ["closed", "closed without payment"]
-            }
-        }
-        }, 
-*/
+
         "priority": {
             "definition": "A submission quality score from a 0-5 assigned by the broker indicating how complete and bindable the submission is. Higher number means a higher quality, more complete submission.",
             "key_table": "submissions",
@@ -248,7 +224,7 @@
             "foreign_keys": {"control_number": "references submissions(control_number)", "carrier_id": "references carriers(carrier_id)"},
             "columns": { 
                 "quote_id":                     {"type": "TEXT"},
-                "submission_control_number":    {"type": "TEXT"},
+                "control_number":    {"type": "TEXT"},
                 "carrier_id":                   {"type": "TEXT"},
                 "quote_premium":                {"type": "TEXT"}
             }
@@ -315,7 +291,7 @@
         },
         {
             "question": "What is the hit ratio by division?",
-            "sql": "SELECT s.division, COUNT(*) AS total_quotes, SUM(CASE WHEN q.quote_status='bound' THEN 1 ELSE 0 END) AS bound_count, ROUND(100.0 * SUM(CASE WHEN q.quote_status='bound' THEN 1 ELSE 0 END) / COUNT(*), 2) AS hit_ratio_pct FROM quotes q JOIN submissions s ON q.submission_control_number=s.control_number GROUP BY s.division ORDER BY hit_ratio_pct DESC"
+            "sql": "SELECT s.division, COUNT(*) AS total_quotes, SUM(CASE WHEN q.quote_status='bound' THEN 1 ELSE 0 END) AS bound_count, ROUND(100.0 * SUM(CASE WHEN q.quote_status='bound' THEN 1 ELSE 0 END) / COUNT(*), 2) AS hit_ratio_pct FROM quotes q JOIN submissions s ON q.control_number=s.control_number GROUP BY s.division ORDER BY hit_ratio_pct DESC"
         },
         {
             "question": "What submissions are currently open?",

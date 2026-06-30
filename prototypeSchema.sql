@@ -41,20 +41,33 @@ CREATE TABLE IF NOT EXISTS submissions (
     priority TEXT,
     type TEXT NOT NULL,
     submission_group_id TEXT REFERENCES submission_groups(submission_group_id),
-    ims_status TEXT CHECK (ims_status IN (
-        'submitted',
-        'declined',
-        'in rating', 
-        'lost',
-        'not taken up',
-        'cancelled',
-        'bound-issued',
-        'underwriting review',
-        'referred to carrier',
-        'bound',
-        'expired',
-        'not quoted',
-        'pending cancellation'
+    sub_status TEXT CHECK (sub_status IN (
+        'Additional Information Received',
+        'Additional Information Request',
+        'Bound',
+        'Bound - Issued'
+        'Cancelled',
+        'Cancelled by Correction',
+        'Declined',
+        'Expired',
+        'In Rating',
+        'Indicated',
+        'Lost',
+        'Lost on BOR',
+        'Non-Renewed',
+        'Not Quoted',
+        'Not Taken Up',
+        'Pending Cancellation',
+        'Pending Reinstatement',
+        'Quoted',
+        'Quoted not Bound',
+        'Referred to Carrier',
+        'Submitted',
+        'Unbound Correction',
+        'Unbound Endorsement',
+        'Unbound Internal Correction',
+        "Underwriting Review",
+        "Unknown Status"
         )),
     division TEXT CHECK (division IN (
         'Wholesale',
@@ -68,16 +81,17 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 CREATE TABLE IF NOT EXISTS quotes (
     quote_id TEXT PRIMARY KEY,
-    submission_control_number TEXT REFERENCES submissions(control_number),
+    control_number TEXT REFERENCES submissions(control_number),
     carrier_id TEXT REFERENCES carriers(carrier_id),
     quote_premium REAL,
     quote_status TEXT CHECK (quote_status IN (
-        'quoted',
-        'not quoted',
-        'bound',
-        'declined',
-        'not taken up',
-        'lost'
+        'Quoted',
+        'Quoted not Bound',
+        'Bound-Issued',
+        'Bound',
+        'Declined',
+        'Not Taken Up',
+        'Lost'
     ))
 );
 
@@ -103,13 +117,8 @@ CREATE TABLE IF NOT EXISTS losses (
     paid_amount REAL, 
     reserved_amount REAL,
     incurred_amount REAL,
-    loss_status TEXT CHECK (loss_status IN (
+    loss_status TEXT CHECK (policy_status IN (
         'lost',
-        'not taken up',
-        'declined',
-        'pending cancellation',
-        'expired',
-        'cancelled'
     ))
 );
 

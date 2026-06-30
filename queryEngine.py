@@ -28,6 +28,7 @@ load_dotenv()
 
 DB_PATH              = "prototype.db"
 DICT_PATH            = "dataDict_Editing.json"
+SEMANTIC_MODEL_PATH  = "semantic_model.json"
 #APPETITE_LIVE_PATH   = "carrierAppetite_live.json"
 #APPETITE_STATIC_PATH = "carrierAppetite_static.json"
 MODEL                = "claude-sonnet-4-6"
@@ -39,11 +40,11 @@ def load_data_dictionary() -> dict:
         return json.load(f)
 
 def load_semantic_model() -> dict:
-    with open(DICT_PATH) as f:
+    with open(SEMANTIC_MODEL_PATH) as f:
         return json.load(f)
     
 """ def load_appetite() -> dict:
-    """Load live appetite file if available, fall back to static."""
+    #Load live appetite file if available, fall back to static.
     for path in (APPETITE_LIVE_PATH, APPETITE_STATIC_PATH):
         if os.path.exists(path):
             with open(path) as f:
@@ -52,10 +53,10 @@ def load_semantic_model() -> dict:
 
 
 def build_appetite_context(appetite: dict) -> str:
-    """
-    Formats carrier appetite data for injection into the system prompt.
-    Only includes carriers that have been profiled (non-empty preferred_divisions).
-    """
+    
+    #Formats carrier appetite data for injection into the system prompt.
+    #Only includes carriers that have been profiled (non-empty preferred_divisions).
+    
     carriers = appetite.get("carriers", {})
     if not carriers:
         return ""
@@ -104,7 +105,8 @@ def build_appetite_context(appetite: dict) -> str:
     )
 """
 
-def build_system_prompt(dd: dict, appetite: dict | None = None) -> str:
+def build_system_prompt(dd: dict, sm: dict) -> str:
+    #appetite: dict | None = None 
     """
     Builds the system prompt by injecting:
     1. Business glossary
@@ -143,8 +145,68 @@ def build_system_prompt(dd: dict, appetite: dict | None = None) -> str:
         for ex in dd["example_questions_and_sql"]
     )
 
-    # ── Layer 4: Carrier appetite guide ──────────────────────
-    appetite_text = build_appetite_context(appetite or {})
+    # ── Layer 4: Semantic model ──────────────────────
+  
+    # 4a. Synonym map — flat list the LLM can scan quickly
+    synonym_lines = []
+    for canonical, aliases in sm["synonym_map"].items():
+        if canonical.startswith("_"):
+            continue
+        synonym_lines.append(f"- {canonical}: also called {', '.join(aliases)}")
+    synonym_text = "\n".join(synonym_lines)
+ 
+    # 4b. Intent patterns — vague phrases → resolved intent
+    intent_lines = []
+    for pattern in sm["intent_patterns"]["patterns"]:
+        phrases = " / ".join(f'"{p}"' for p in pattern["user_says"])
+        intent_lines.append(
+            f"- {phrases}\n"
+            f"  → {pattern['resolved_intent']}: {pattern['default_interpretation']}\n"
+            f"  → Prepend comment: {pattern['disambiguation_comment']}"
+        )
+    intent_text = "\n\n".join(intent_lines)
+ 
+    # 4c. Metric definitions — join paths and SQL patterns
+    metric_lines = []
+    for metric, meta in sm["metric_definitions"].items():
+        if metric.startswith("_"):
+            continue
+        if "alias_of" in meta:
+            metric_lines.append(f"- {metric}: alias for {meta['alias_of']}")
+            continue
+        metric_lines.append(
+            f"- {metric}:\n"
+            f"  Tables: {', '.join(meta['required_tables'])}\n"
+            f"  Join path: {meta['join_path']}\n"
+            f"  SQL pattern: {meta['sql_pattern']}"
+            + (f"\n  ⚠ Warning: {meta['warning']}" if "warning" in meta else "")
+        )
+    metric_text = "\n\n".join(metric_lines)
+ 
+    # 4d. Multi-hop templates — reasoning scaffolds
+    multihop_lines = []
+    for t in sm["multi_hop_query_templates"]["templates"]:
+        steps = "\n    ".join(t["reasoning_steps"])
+        multihop_lines.append(
+            f"Intent: {t['intent']}\n"
+            f"  Also triggered by: {', '.join(t['synonyms'])}\n"
+            f"  Reasoning:\n    {steps}\n"
+            f"  Tables: {', '.join(t['tables_required'])}"
+            + (f"\n  ⚠ {t['warning']}" if "warning" in t else "")
+        )
+    multihop_text = "\n\n".join(multihop_lines)
+ 
+    # 4e. Ambiguity resolution rules
+    ambiguity_lines = []
+    for rule in sm["ambiguity_resolution_rules"]["rules"]:
+        ambiguity_lines.append(
+            f"- If {rule['scenario']}:\n"
+            f"  → {rule['default_behavior']}\n"
+            f"  → {rule['comment_to_prepend']}"
+        )
+    ambiguity_text = "\n\n".join(ambiguity_lines)  
+    # ── Layer 5: Carrier appetite guide ──────────────────────
+   # appetite_text = build_appetite_context(appetite or {})
 
     return f"""You are an expert insurance data analyst. You help users query an insurance CRM database using plain English.
 
@@ -188,12 +250,58 @@ RULES:
 - Return clean readable SQL with aliases
 - Limit to 20 rows unless user specifies otherwise
 - If the question cannot be answered, say: -- CANNOT_ANSWER: [reason]
-- For carrier appetite questions: use the CARRIER APPETITE GUIDE above to filter or rank carriers
-  by stated preference, prohibited classes, or geographic restrictions — then validate against
-  the quotes table for historical behavior
-{appetite_text}
-"""
 
+═══════════════════════════════
+SYNONYM MAP
+═══════════════════════════════
+{synonym_text}
+
+═══════════════════════════════
+INTENT PATTERNS
+═══════════════════════════════
+{intent_text}
+
+═══════════════════════════════
+METRIC DEFINITIONS
+═══════════════════════════════
+{metric_text}
+
+═══════════════════════════════
+MULTI-HOP QUERY TEMPLATES
+═══════════════════════════════
+{multihop_text}
+
+═══════════════════════════════
+AMBIGUITY RESOLUTION RULES
+═══════════════════════════════
+{ambiguity_text}
+"""
+#def find_join_path(registry, from_table, to_table):
+    # BFS or DFS over the edge list
+    # returns the sequence of (from_table, from_col, to_table, to_col) tuples
+    # needed to connect the two tables
+
+
+def build_repair_prompt(sm: dict) -> str:
+    modes = sm["common_failure_modes"]["patterns"]
+    modes_text = "\n".join(
+        f"- If error contains \"{m['error_match']}\": likely cause is {m['likely_cause']}. "
+        f"Fix: {m['fix_strategy']}"
+        for m in modes
+    )
+    return f"""You are repairing a failed SQL query against a SQLite database.
+
+You will be given:
+1. The original question
+2. The SQL that failed
+3. The exact error message
+
+KNOWN FAILURE PATTERNS:
+{modes_text}
+
+Match the error message against these patterns first. If none match, reason from the schema directly.
+Return ONLY the corrected SQL — no explanation, no markdown.
+"""
 
 def run_sql(sql: str) -> tuple[list, list]:
     conn = sqlite3.connect(DB_PATH)
@@ -208,6 +316,30 @@ def run_sql(sql: str) -> tuple[list, list]:
     finally:
         conn.close()
 
+def repair_sql(question: str, failed_sql: str, error: str, repair_prompt: str, client: Anthropic, attempts: list) -> str:
+    attempts_text = "\n\n".join(
+        f"Attempt {i+1} (failed):\nSQL: {a['sql']}\nError: {a['error']}"
+        for i, a in enumerate(attempts)
+    )
+    user_message = f"""Original question: {question}
+
+Failed SQL:
+{failed_sql}
+
+Error:
+{error}
+
+{"Previous repair attempts:\n" + attempts_text if attempts else ""}
+
+Do not repeat any approach listed above. Return corrected SQL only."""
+
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=1000,
+        system=repair_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    return response.content[0].text.strip()
 
 def format_results(cols: list, rows: list, max_col_width=28) -> str:
     if not rows:
@@ -320,8 +452,9 @@ def main():
 
     client        = Anthropic(api_key=api_key)
     dd            = load_data_dictionary()
-    appetite      = load_appetite()
-    system_prompt = build_system_prompt(dd, appetite)
+    sm           = load_semantic_model()
+    #appetite      = load_appetite()
+    system_prompt = build_system_prompt(dd, sm)  
 
     if args.question:
         ask(args.question, system_prompt, client)
