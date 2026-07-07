@@ -1,0 +1,400 @@
+{
+    "_meta": {
+    "version" : "1.0",
+    "description" : "Data dictionary for Convelo Submission Stats",
+    "database" : "prototype.db"
+    },
+
+    "business_glossary": {
+        "hit_ratio": {
+            "definition": "The percentage of quoted submissions that result in a bound (sold) policy. Core KPI for measuring placement success.",
+            "sql_snippet":"COUNT(CASE WHEN quote_status = 'bound')/COUNT(*) * 100"
+        },
+        "loss_ratio": {
+            "definition": "Incurred losses divided by earned premium, expressed as a percentage. Measures how unprofitable a policy or book of business is.",
+            "sql_snippet": "ROUND(100.0 * SUM(reserved_amount) / NULLIF(SUM(bound_premium), 0), 2) AS loss_ratio",
+            "typical_range":"For Property and Casualty Insurance the avg loss ratios fall between 40% and 60%. Below 60% is generally profitable; above 100% means losses exceed premium."
+        },
+        "carrier_appetite": {
+            "definition": "A carrier's willingness to underwrite a specific risk based on industry, line of business, hazard, geography, and/or account size. Measured by historical accept/decline rates.",
+            "how_to_measure": "Query quotes table grouped by carrier_id, calculate decline rate and average premium for a given line of business and division",
+            "sql_snippet": "SELECT carrier_id, COUNT(*) AS total_quotes, SUM(CASE WHEN quote_status='declined'THEN 1 ELSE 0 END) AS declined, ROUND(100.0 * SUM(CASE WHEN quote_status='declined' THEN 1 ELSE 0 END) / COUNT(*), 2) AS decline_rate FROM quotes GROUP BY carrier_id"
+        },
+        "submission": {
+            "definition": "A formal request sent to one or more carriers to obtain quotes for a specific account and coverage period. One submission can generate multiple quptes (one per carrier).",
+            "key_column": "submissions.submissions_id"
+        },
+        "quote": {
+            "definition": "A carrier's response to a submission. One submission generates multiple quotes, one per carrier approached. A quote can be accepted, declined, or not taken up.",
+            "key_column": "quotes.quote_id",
+            "status_column": "quote_status"
+        },
+        "bind": {
+            "definition": "The moment a quote is formally accepted and coverage goes into effect. Only one quote per submission gets bound. Identified by quote_status = 'bound'.",
+            "key_table": "quotes",
+            "how_to_identify": "quote_status = 'bound'"
+
+        },
+
+        "risk": {
+            "definition": "Uncertainty concerning the possibility of loss by a peril for which insurance is pursued. Risk is assessed by the carrier and priced into the premium.",
+            "key_table": "submissions",
+            "how_to_measure": "Risk is a querytime composite across: employee_count, annual_revenue, naics_code, insured_state, naics_code, sic_code, lob_name and division. It is validated against quote_premium and losses."
+        },
+
+        "exposure": {
+            "definition": "The potential for loss or damage to an insured account. Exposure is measured by the account's size, industry, location, and coverage requested.",
+            "key_table": "submissions",
+            "how_to_measure": "Exposure is measured by the account's size, industry, location, and coverage requested. It is reflected in the target premium and bound premium."
+        }
+
+
+    },
+        "sub_status": {
+            "definition": "Tracks where a submission is in the pipeline from intake to policy expiration.",
+            "key_table": "submissions",
+            "values": {
+                "Submitted": "Sent to carriers, awaiting response",
+                "Additional Information Request": "Underwriter has requested more data before proceeding; submission is on hold pending broker response",
+                "Additional Information Received": "Broker has responded to the information request; submission is back in active review",
+                "In Rating": "Carrier is actively pricing the risk",
+                "Indicated": "Carrier has provided a non-binding preliminary price estimate; not a formal quote",
+                "Underwriting Review": "Carrier needs additional underwriting scrutiny before quoting or declining",
+                "Referred to Carrier": "Broker escalated directly to carrier underwriter",
+                "Quoted": "Carrier hsa returned a formal quote; awaiting client decision",
+                "Quoted not Bound": "Carrier quoted but the submission ultimately did not bind; used to distinguish from active quote submissions",
+                "Bound": "Coverage placed, policy active",
+                "Bound-Issued": "Bound and policy documents formally issued",
+                "Declined": "Carrier refused to quote",
+                "Not Taken Up": "Carrier quoted but client chose another",
+                "Lost": "Submission did not result in a bind, manually marked",
+                "Expired": "Policy term ended",
+                "Cancelled": "Policy terminated early",
+                "Pending Cancellation": "In process of being cancelled",
+                "Not Quoted": "Never sent to market",
+                "Unbound Correction": "A correection to a previously bound submission that has been reversed or voided",
+                "Unbound Endorsement": "A mid-term policy change that has been walked back before taking effect",
+                "Unbound Internal Correction": "An internal administrative correction that does not affect the insured's coverage",
+                "Lost on BOR": "Lost due to a Broker of Record change; another broker took over the account",
+                "Cancelled by Correction": "Policy cancellation triggered by an administrative correction rather than a client or underwriter decision",
+                "Pending Reinstatement": "A previously cancelled policy is being reviewed for reactivation",
+                "Non-Renewed": "Policy reached expiration and the carrier or client chose not to renew",
+                "Unknown Status": "Status could not be determined from available data; treat as a data quality flag and exclude from ratio calculations unless explicitly investigating data completeness"    
+            },
+
+
+
+
+            
+            "semantic_groups": {
+                "open_pipeline": {
+                    "label": "Open / Pipeline",
+                    "description": "Submissions still actively moving through the underwriting process. Use this group as the default filter for pipeline queries.",
+                    "sql_hint": "WHERE ims_status IN ('Submitted', 'In Rating', 'Additional Information Request', 'Additional Information Received', 'Indicated', 'Referred to Carrier', 'Underwriting Review')",
+                    "values": ["Submitted", "In Rating", "Additional Information Request", "Additional Information Received", "Indicated", "Referred to Carrier", "Underwriting Review"]
+                },
+                "bound_active": {
+                    "label": "Bound / Active",
+                    "description": "Coverage is placed and the policy is in force.",
+                    "sql_hint": "WHERE ims_status IN ('Bound', 'Bound - Issued')",
+                    "values": ["Bound", "Bound - Issued"]
+                },
+                "closed_lost": {
+                    "label": "Closed / Lost",
+                    "description": "Submission will not result in new bound business.",
+                    "sql_hint": "WHERE ims_status IN ('Declined', 'Not Quoted', 'Not Taken Up', 'Lost', 'Lost on BOR', 'Non-Renewed')",
+                    "values": ["Declined", "Not Quoted", "Not Taken Up", "Lost", "Lost on BOR", "Non-Renewed"]
+                },
+                "exclude_from_ratios": {
+                    "label": "Exclude from Ratio Calculations",
+                "description": "Administrative or correction statuses that should not appear in hit ratio, decline rate, or loss ratio denominators. Their presence indicates a data quality or workflow issue, not a placement outcome.",
+                "sql_hint": "WHERE ims_status NOT IN ('Unknown Status', 'Unbound Correction', 'Unbound Endorsement', 'Unbound Internal Correction')",
+                "values": ["Unknown Status", "Unbound Correction", "Unbound Endorsement", "Unbound Internal Correction"]
+                }
+
+            }
+        },
+
+        "quote_status": {
+            "values": {
+                "Quoted": "Carrier hsa returned a formal quote; awaiting client decision",
+                "Quoted not Bound": "Carrier quoted but the submission ultimately did not bind; used to distinguish from active quote submissions",
+                "Bound": "Coverage placed, policy active",
+                "Bound-Issued": "Bound and policy documents formally issued",
+                "Declined": "Carrier refused to quote",
+                "Not Taken Up": "Carrier quoted but client chose another",
+                "Lost": "Submission did not result in a bind, manually marked",
+                "semantic_groups": {
+                    "active": {
+                        "label": "Active / Pending Decision",
+                        "sql_hint": "WHERE quote_status IN ('quoted')",
+                        "values": ["quoted"]
+                    },
+                    "bound": {
+                        "label": "Bound",
+                        "description": "The one quote per submission that resulted in placement. Use this for hit ratio numerator.",
+                        "sql_hint": "WHERE quote_status = 'bound'",
+                        "values": ["bound"]
+                    },
+                    "closed_no_placement": {
+                        "label": "Closed Without Placement",
+                        "description": "Use for decline rate and loss analysis. Includes all quotes that did not result in a bind.",
+                        "sql_hint": "WHERE quote_status IN ('declined', 'not taken up', 'lost', 'not quoted')",
+                        "values": ["declined", "not taken up", "lost", "not quoted"]
+                    }
+            
+                }
+            }
+        },
+
+        
+        
+        
+        
+        
+        "loss_status": {
+            "values": {
+                "open": "Claim is active, investigation or payment is ongoing",
+                "closed": "Claim has been fully resolved; no further payments expected",
+                "closed without repayment": "Claim was investigated but no payment was made; coverage did not apply or claim was not substantiated",
+                "reopened": "A previously closed claim has been reopened due to new information or additional damages",
+                "pending": "Claim has been filed but has not yet entered active investigation"
+            },
+            "semantic_groups": {
+                "active": {
+                    "label": "Active Claims",
+                    "description": "Claims still being worked. Reserved amounts are live and subject to change. Use incurred_amount for loss ratio on these.",
+                    "sql_hint": "WHERE loss_status IN ('open', 'reopened', 'pending')",
+                    "values": ["open", "reopened", "pending"]
+                },
+                "closed": {
+                    "label": "Closed Claims",
+                    "description": "Claims fully resolved. Use for historical loss analysis",
+                    "sql_hint": "WHERE loss_status IN ('closed', 'closed without repayment')",
+                    "values": ["closed", "closed without repayment"]
+                }
+            }
+        },
+
+        "producer_type": {
+            "values": {
+                "R": "retail",
+                "W": "wholesale",
+                "MGA": "A managing general agent who is a specialized insurance intermediary with underwriting authority granted by insurers."
+            }       
+        },
+            "priority": {
+            "definition": "A submission quality score from a 0-5 assigned by the broker indicating how complete and bindable the submission is. Higher number means a higher quality, more complete submission.",
+            "key_table": "submissions",
+            "values": {
+                "0": "No opportunity, log in only, does not fit appetite",
+                "1": "Received application and some loss data, account not qualified",
+                "2": "Received application, account qualified, additional info requested",
+                "3": "Fully qualified submission, all required information obtained, no commitment from broker",
+                "4": "Fully complete submission, broker requirements met, recommended, broker new opportunity",
+                "5": "Fully complete submission, broker requirements met, recommended, broker controls"
+             }
+        },
+
+
+        "tables": {
+            "lines_of_business": {
+                "description": "Types of insurance coverage offered.",
+                "primary_key": "lob_id",
+                "columns": {
+                    "lob_id":           {"type": "TEXT"}
+            }
+        },
+        "accounts": {
+            "description": "Insured clients.",
+            "primary_key": "account_id",
+            "columns": {
+                "account_id": {
+                    "type": "TEXT",
+                    "description": "Which account is being insured"},
+                "raw_account_name": {"type": "TEXT"},
+                "account_name":     {"type": "TEXT"}
+            }
+        },
+
+        "broker_groups": {
+            "description": "A parent organization or holding company that owns multiple independent brokerage firms as subsidiaries. Distinct from an individual brokerage firm (brokers table) and from and individual producer (producers table).",
+            "primary_key": "broker_group_id",
+            "columns": {
+                "broker_group_id":      {"type": "TEXT"},
+                "broker_group_name":    {"type": "TEXT"} 
+            }
+        },
+
+        "brokers": {
+            "description": "External independent retail agencies/firms that submit business to Convelo. This is at the firm-level, the producer state is utilized just as an exposure data point which logically maps the same as the broker state. This means that one firm can have many producers.",
+            "primary_key": "broker_id",
+            "foreign_keys": {"broker_group_id": "references broker_groups(broker_groups_id)"},
+            "columns": {
+                "broker_id":            {"type": "TEXT"},
+                "broker_name":          {"type": "TEXT"},
+                "broker_group_id":      {"type": "TEXT"},
+                "relationship_owner": {
+                    "type": "TEXT",
+                    "description": "Internal Convelo contact who owns the relationship with this firm"
+                },
+                "producer_state": {
+                    "type": "TEXT",
+                    "description": "Name of brokerage firm/agency"
+                }
+            }
+        },
+
+        "producers": {
+            "description": "Modeling an individual level of member of either a small or large firm who sells, services, or negotiates insurance policies either on behalf of a company or independently.",
+            "primary key": "producer_id",
+            "foreign_keys": {"broker_id":  "references brokers(broker_id)"},
+            "columns": {
+                "producer_id":          {"type": "TEXT"},
+                "producer_name":        {"type": "TEXT"},
+                "producer_type": {
+                    "type": "TEXT",
+                    "description": "a producer can fall under one of three: retail, wholesale or mga."}
+            }
+        },
+
+        "carriers": {
+            "description": "Insurance companies we place our clients with based off of carrier appetite.",
+            "primary_key": "carrier_id",
+            "columns": {
+                "carrier_id":           {"type": "TEXT"},
+                "carrier_name":         {"type": "TEXT"},
+                "underwriter":          {"type": "TEXT"}
+            }
+        },
+        "submission_groups": {
+            "description": "Groups all lines of business submitted together for one client in one marketing effort or renewal cycle. One group can contain multiple submissions, one per line of business. The group tracks the total target premium for the entire account.",
+            "primary_key": "submission_group_id",
+            "foreign_keys": {"account_id":  "references accounts(account_id)",
+                             "producer_id": "references producers(producer_id"},
+            "columns": {          
+                "submission_group_id":                  {"type": "TEXT"},
+                "submission_group_target_premium":      {"type": "REAL"},
+                "account_id":                           {"type": "TEXT"},
+                "producer_id":                          {"type": "TEXT"}
+            }
+
+        },
+        "submissions": {
+            "description": "One row per line of business within a submission group. Tracks the full lifecycle of a single coverage request from intake through bind or loss. The control_numbr is the unique identifier inherited from the IMS system.",
+            "primary_key": "control_number",
+            "foreign_keys": {"account_id":  "references accounts(account_id)"}, 
+            "broker_id": "references brokers(broker_id)", "lob_name": "references lines_of_business(lob_name)",
+            "columns": {
+                "control_number":               {"type": "TEXT"},
+                "account_id":                   {"type": "TEXT"},
+                "broker_id":                    {"type": "TEXT"},
+                "lob_name":                     {"type": "TEXT"},
+                "effective_date":               {"type": "TEXT"},
+                "expiration_date":              {"type": "TEXT"},
+                "target_premium":               {"type": "REAL"},
+                "priority":                     {"type": "TEXT"},
+                "type":                         {"type": "TEXT"},
+                "submission_group_id":          {"type": "TEXT"},
+                "ims_status":                   {"type": "TEXT"},
+                "division":                     {"type": "TEXT"}
+            }
+        },
+        "quotes": {
+            "description": "Individual carrier responses to a submission. Multiple quotes per submission (one per carrier approached).",
+            "primary_key": "control_number",
+            "foreign_keys": {"submission_id": "references submissions(submission_id)", 
+                             "carrier_id": "references carriers(carrier_id)"},
+            "columns": { 
+                "control_number":               {"type": "TEXT"},
+                "submission_id":                {"type": "TEXT"},
+                "carrier_id":                   {"type": "TEXT"},
+                "underwriter":                  {"type": "TEXT"},
+                "quote_premium":                {"type": "TEXT"},
+                "quote_status":                 {"type": "TEXT"}
+            }
+        },
+
+        "policies":{
+            "description": "a written contract ratifying the legality of an insurance agreement.",
+            "primary_key": "policy_id",
+            "foreign_keys": {"control_number": "references quotes(control_number)", 
+                             "carrier_id": "references carriers(carrier_id)"},
+            "columns": {
+                "policy_id":                {"type": "TEXT"},
+                "control_number":           {"type": "TEXT"},
+                "carrier_id":               {"type": "TEXT"},
+                "bound_premium":            {"type": "REAL"},
+                "policy_status":            {"type": "TEXT"}
+            }
+        },
+
+        "losses": {
+            "description": "Claims filed against active policies. One policy can have multiple losses. Tracks payment status and amounts at the individual claim level.",
+            "primary_key": "loss_id",
+            "foreign_keys": {"policy_id": "references policies(policy_id)"},
+            "columns": { 
+                "loss_id":                  {"type": "TEXT"},
+                "policy_id":                {"type": "TEXT"},
+                "loss_date":                {"type": "TEXT"},
+                "report_date":              {"type": "TEXT"},
+                "paid_amount":              {"type": "REAL"},
+                "reserved_amount":          {"type": "REAL"},
+                "incurred_amount":          {"type": "REAL"},
+                "loss_status":              {"type": "TEXT"}
+
+            }
+        }
+    },
+    "example_questions_and_sql": [
+        {
+            "question": "What is our overall hit ratio?",
+            "sql": "SELECT ROUND(100.0 * SUM(CASE WHEN quote_status='bound' THEN 1 ELSE 0 END) / COUNT(*), 2) AS hit_ratio_pct FROM quotes"
+        },
+        {
+            "question": "What is the hit ratio by carrier?",
+            "sql": "SELECT carrier_id, COUNT(*) AS total_quotes, SUM(CASE WHEN quote_status='bound' THEN 1 ELSE 0 END) AS bound_count, ROUND(100.0 * SUM(CASE WHEN quote_status='bound' THEN 1 ELSE 0 END) / COUNT(*), 2) AS hit_ratio_pct FROM quotes GROUP BY carrier_id ORDER BY hit_ratio_pct DESC"
+        },
+        {
+            "question": "Assess carrier appetite for a specific line of business",
+            "sql": "SELECT q.carrier_id, COUNT(*) AS total_quotes, SUM(CASE WHEN q.quote_status='declined' THEN 1 ELSE 0 END) AS declined_count, ROUND(100.0 * SUM(CASE WHEN q.quote_status='declined' THEN 1 ELSE 0 END) / COUNT(*), 2) AS decline_rate_pct FROM quotes q JOIN submissions s ON q.submission_control_number=s.control_number WHERE s.lob_name='General Liability' GROUP BY q.carrier_id ORDER BY decline_rate_pct ASC"
+        },
+        {
+            "question": "Which accounts have the worst loss ratios?",
+            "sql": "SELECT a.account_name, ROUND(100.0 * SUM(l.incurred_amount) / NULLIF(SUM(p.bound_premium), 0), 2) AS loss_ratio_pct FROM losses l JOIN policies p ON l.policy_id=p.policy_id JOIN submissions s ON p.control_number=s.control_number JOIN accounts a ON s.account_id=a.account_id GROUP BY a.account_name ORDER BY loss_ratio_pct DESC LIMIT 20"
+        },
+        {
+            "question": "How much total bound premium do we have by line of business?",
+            "sql": "SELECT s.lob_name, ROUND(SUM(p.bound_premium), 2) AS total_premium, COUNT(p.policy_id) AS policy_count FROM policies p JOIN submissions s ON p.control_number=s.control_number GROUP BY s.lob_name ORDER BY total_premium DESC"
+        },
+        {
+            "question": "Which carriers have the highest decline rates?",
+            "sql": "SELECT carrier_id, COUNT(*) AS total_quotes, SUM(CASE WHEN quote_status='declined' THEN 1 ELSE 0 END) AS declined_count, ROUND(100.0 * SUM(CASE WHEN quote_status='declined' THEN 1 ELSE 0 END) / COUNT(*), 2) AS decline_rate_pct FROM quotes GROUP BY carrier_id ORDER BY decline_rate_pct DESC"
+        },
+        {
+            "question": "What are the top 10 accounts by bound premium?"
+            "sql": "SELECT a.account_name, ROUND(SUM(p.bound_premium), 2) AS total_premium FROM policies p JOIN submissions s ON p.control_number=s.control_number JOIN accounts a ON s.account_id=a.account_id GROUP BY a.account_name, a.account_ ORDER BY total_premium DESC LIMIT 10"
+        },
+        {
+            "question": "What is the hit ratio by division?",
+            "sql": "SELECT s.division, COUNT(*) AS total_quotes, SUM(CASE WHEN q.quote_status='bound' THEN 1 ELSE 0 END) AS bound_count, ROUND(100.0 * SUM(CASE WHEN q.quote_status='bound' THEN 1 ELSE 0 END) / COUNT(*), 2) AS hit_ratio_pct FROM quotes q JOIN submissions s ON q.control_number=s.control_number GROUP BY s.division ORDER BY hit_ratio_pct DESC"
+        },
+        {
+            "question": "What submissions are currently open?",
+            "sql": "SELECT s.control_number, a.account_name, s.lob_name, s.division, s.ims_status, s.effective_date FROM submissions s JOIN accounts a ON s.account_id=a.account_id WHERE s.ims_status IN ('submitted', 'in rating', 'underwriting review', 'referred to carrier') ORDER BY s.effective_date ASC"
+        },
+        {
+            "question": "What is the total incurred losses by line of business?",
+            "sql": "SELECT s.lob_name, ROUND(SUM(l.incurred_amount), 2) AS total_incurred FROM losses l JOIN policies p ON l.policy_id=p.policy_id JOIN submissions s ON p.control_number=s.control_number GROUP BY s.lob_name ORDER BY total_incurred DESC"
+        },
+        {
+            "question": "Which producers are sending us the most business?",
+            "sql": "SELECT pr.producer_name, b.broker_name, COUNT(DISTINCT s.control_number) AS submission_count FROM submissions s JOIN producers pr ON s.producer_id=pr.producer_id JOIN brokers b ON pr.broker_id=b.broker_id GROUP BY pr.producer_name, b.broker_name ORDER BY submission_count DESC LIMIT 20"
+        },
+        {
+            "question": "What is the hit ratio by broker firm?",
+            "sql": "SELECT b.broker_name, COUNT(*) AS total_quotes, SUM(CASE WHEN q.quote_status='bound' THEN 1 ELSE 0 END) AS bound_count, ROUND(100.0 * SUM(CASE WHEN q.quote_status='bound' THEN 1 ELSE 0 END) / COUNT(*), 2) AS hit_ratio_pct FROM quotes q JOIN submissions s ON q.submission_control_number=s.control_number JOIN producers pr ON s.producer_id=pr.producer_id JOIN brokers b ON pr.broker_id=b.broker_id GROUP BY b.broker_name ORDER BY hit_ratio_pct DESC"
+        }    
+
+    ]
+}
