@@ -1,0 +1,371 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "description": "Semantic model for the insurance CRM NL-to-SQL query engine. Loaded alongside the data dictionary to improve intent resolution, synonym handling, and multi-hop query reasoning.",
+    "how_to_use": "Inject the contents of this file as a fourth layer in build_system_prompt(), after the example Q→SQL pairs."
+  },
+
+  "synonym_map": {
+    "_description": "Maps alternate user phrasings to canonical KPI or column terms. When any synonym appears in a user question, treat it as the canonical term for SQL generation.",
+    "hit_ratio":         ["placement rate", "bind rate", "close rate", "win rate", "success rate", "binding percentage", "how much are we binding", "conversion rate"],
+    "loss_ratio":        ["loss experience", "claims ratio", "how bad are the losses", "profitability", "loss performance", "combined ratio"],
+    "decline_rate":      ["declination rate", "rejection rate", "how often do carriers decline", "carrier refusal rate", "appetite score"],
+    "bound_premium":     ["written premium", "placed premium", "revenue", "book size", "premium volume", "total premium"],
+    "quote_premium":     ["indicated premium", "offered premium", "carrier price"],
+    "carrier_appetite":  ["carrier fit", "carrier willingness", "which carriers like this risk", "who will write this"],
+    "submission":        ["account", "risk", "deal", "opportunity", "file", "application"],
+    "quote":             ["indication", "offer", "carrier response", "pricing"],
+    "bind":              ["place", "close", "win", "write", "finalize coverage"],
+    "lob_name":          ["line of business", "coverage type", "line", "product", "coverage"],
+    "division":          ["team", "segment", "unit", "book", "channel"],
+    "submission_status":        ["pipeline status", "submission status", "deal stage", "where is it", "current status"],
+    "priority":          ["submission quality", "submission score", "how complete is the submission", "bindability score"],
+    "incurred_amount":   ["total loss", "claim amount", "loss amount", "cost of claims"],
+    "reserved_amount":   ["IBNR", "reserves", "outstanding loss", "case reserve"],
+    "control_number":    ["submission ID", "submission number", "control #", "file number"]
+  },
+
+  "intent_patterns": {
+    "_description": "Maps ambiguous natural language patterns to a canonical query intent and a default SQL interpretation. Use these when the user question does not name a specific KPI or table directly.",
+    "patterns": [
+      {
+        "user_says": ["how are we doing", "how is the book performing", "give me an overview", "what does the book look like"],
+        "resolved_intent": "hit_ratio_overall",
+        "default_interpretation": "Return overall hit ratio from the quotes table.",
+        "disambiguation_comment": "-- Interpreting 'how are we doing' as overall hit ratio (bound quotes / total quotes)"
+      },
+      {
+        "user_says": ["who are our best carriers", "which carriers are performing well", "top carriers", "favorite carriers"],
+        "resolved_intent": "carrier_hit_ratio_ranking",
+        "default_interpretation": "Rank carriers by hit ratio descending.",
+        "disambiguation_comment": "-- Interpreting 'best carriers' as highest hit ratio by carrier"
+      },
+      {
+        "user_says": ["who are our worst carriers", "which carriers are a problem", "bad carriers", "carriers dragging us down"],
+        "resolved_intent": "carrier_decline_rate_ranking",
+        "default_interpretation": "Rank carriers by decline rate descending.",
+        "disambiguation_comment": "-- Interpreting 'worst carriers' as highest decline rate by carrier"
+      },
+      {
+        "user_says": ["what's in the pipeline", "what's active", "open submissions", "what are we working on", "pending deals"],
+        "resolved_intent": "open_submissions",
+        "default_interpretation": "Return submissions with submission_status IN ('submitted', 'in rating', 'underwriting review', 'referred to carrier').",
+        "disambiguation_comment": "-- Interpreting 'pipeline' as submissions not yet bound, declined, or closed"
+      },
+      {
+        "user_says": ["which accounts are unprofitable", "bad accounts", "problem accounts", "worst performing accounts", "accounts with losses"],
+        "resolved_intent": "loss_ratio_by_account",
+        "default_interpretation": "Return accounts ranked by loss ratio descending.",
+        "disambiguation_comment": "-- Interpreting 'unprofitable accounts' as highest loss ratio (incurred / bound_premium)"
+      },
+      {
+        "user_says": ["which broker is performing best", "top brokers", "best producers", "who is sending us good business"],
+        "resolved_intent": "broker_hit_ratio_ranking",
+        "default_interpretation": "Join quotes → submissions → brokers, rank by hit ratio descending.",
+        "disambiguation_comment": "-- Interpreting 'best broker' as highest hit ratio by producer"
+      },
+      {
+        "user_says": ["which LOB is most profitable", "best line", "most profitable coverage", "what should we focus on"],
+        "resolved_intent": "loss_ratio_by_lob",
+        "default_interpretation": "Return lines of business ranked by loss ratio ascending (lower = more profitable).",
+        "disambiguation_comment": "-- Interpreting 'most profitable LOB' as lowest loss ratio by line of business"
+      },
+      {
+        "user_says": ["how much premium do we have", "total book", "total premium", "what's our book size"],
+        "resolved_intent": "total_bound_premium",
+        "default_interpretation": "Return SUM(bound_premium) from the policies table.",
+        "disambiguation_comment": "-- Interpreting 'total premium' as sum of bound_premium across all active policies"
+      },
+      {
+        "user_says": ["how many claims do we have", "claim count", "loss frequency", "how often do we see losses"],
+        "resolved_intent": "loss_frequency",
+        "default_interpretation": "Return COUNT(loss_id) from the losses table, optionally grouped by lob_name or account.",
+        "disambiguation_comment": "-- Interpreting 'claims' as rows in the losses table"
+      },
+      {
+        "user_says": ["who controls the relationship", "relationship owner", "who owns this account", "who manages the broker"],
+        "resolved_intent": "relationship_owner_lookup",
+        "default_interpretation": "Return relationship_owner from the brokers table.",
+        "disambiguation_comment": "-- Interpreting 'relationship owner' as brokers.relationship_owner"
+      }
+    ]
+  },
+
+  "metric_definitions": {
+    "_description": "Canonical definitions for each computable KPI: which tables are required, the join path, and the exact SQL pattern. Use these as guardrails when generating SQL for any metric.",
+    "hit_ratio": {
+      "definition": "Percentage of quotes that result in a bind.",
+      "required_tables": ["quotes"],
+      "join_path": "none — quotes table is self-contained for this metric",
+      "sql_pattern": "ROUND(100.0 * SUM(CASE WHEN quote_status = 'Bound' OR quote_status = 'Bound-Issued' THEN 1 ELSE 0 END) / COUNT(*), 2) AS hit_ratio_pct",
+      "group_by_options": ["carrier_id", "submissions.division", "submissions.lob_name", "submissions.broker_id"],
+      "warning": "NEVER check policy_id IS NOT NULL to detect a bind. Always use quote_status = 'Bound', 'Bound-Issued' on the quotes table."
+    },
+    "loss_ratio": {
+      "definition": "Incurred losses divided by bound premium, expressed as a percentage.",
+      "required_tables": ["losses", "policies", "submissions"],
+      "join_path": "losses → policies ON loss.policy_id = policies.policy_id → submissions ON policies.control_number = submissions.submission_id",
+      "sql_pattern": "ROUND(100.0 * SUM(l.incurred_amount) / NULLIF(SUM(p.bound_premium), 0), 2) AS loss_ratio_pct",
+      "group_by_options": ["accounts.account_name", "submissions.lob_name", "submissions.division", "brokers.producer_name"],
+      "warning": "Always use NULLIF on bound_premium denominator to avoid division by zero."
+    },
+    "decline_rate": {
+      "definition": "Percentage of quotes from a carrier that were declined.",
+      "required_tables": ["quotes"],
+      "join_path": "none — quotes table only; optionally join submissions for LOB or division filter",
+      "sql_pattern": "ROUND(100.0 * SUM(CASE WHEN quote_status = 'Declined' THEN 1 ELSE 0 END) / COUNT(*), 2) AS decline_rate_pct",
+      "group_by_options": ["carrier_id", "submissions.lob_name", "submissions.division"],
+      "warning": "Order by decline_rate_pct (percentage) by default. Only order by raw declined count if user explicitly asks."
+    },
+    "bound_premium_volume": {
+      "definition": "Total premium written across bound policies.",
+      "required_tables": ["policies"],
+      "join_path": "policies only; join submissions for LOB/division breakdown, join accounts for account-level breakdown",
+      "sql_pattern": "ROUND(SUM(p.bound_premium), 2) AS total_bound_premium",
+      "group_by_options": ["submissions.lob_name", "submissions.division", "accounts.account_name"]
+    },
+    "loss_frequency": {
+      "definition": "Count of claims (loss rows) per policy or per account.",
+      "required_tables": ["losses", "policies"],
+      "join_path": "losses → policies ON losses.policy_id = policies.policy_id",
+      "sql_pattern": "COUNT(l.loss_id) AS claim_count",
+      "group_by_options": ["policies.policy_id", "submissions.lob_name", "accounts.account_name"]
+    },
+    "quote_to_bind_ratio": {
+      "definition": "Alias for hit_ratio. Same computation — use quote_status = 'Bound', 'Bound-Issued' on quotes table.",
+      "alias_of": "hit_ratio"
+    }
+  },
+  
+  "join_registry": [
+    {
+        "from_table": "quotes",
+        "from_col": "submission_id",
+        "to_table": "submissions",
+        "to_col": "submission_id",
+        "join_type": "INNER",
+        "notes": "One submission can have multiple quotes, one per carrier"
+    },
+    {
+        "from_table": "policies",
+        "from_col": "control_number",
+        "to_table": "quotes",
+        "to_col": "control_number",
+        "join_type": "INNER",
+        "notes": "Only bound quotes generate a policy row"
+    },
+    {
+        "from_table": "losses",
+        "from_col": "policy_id",
+        "to_table": "policies",
+        "to_col": "policy_id",
+        "join_type": "INNER",
+        "notes": "One policy can have multiple loss rows"
+    },
+    {
+        "from_table": "submissions",
+        "from_col": "account_id",
+        "to_table": "accounts",
+        "to_col": "account_id",
+        "join_type": "INNER",
+        "notes": null
+    },
+    {
+        "from_table": "submissions",
+        "from_col": "broker_id",
+        "to_table": "brokers",
+        "to_col": "broker_id",
+        "join_type": "INNER",
+        "notes": null
+    },
+    {
+        "from_table": "submissions",
+        "from_col": "lob_name",
+        "to_table": "lines_of_business",
+        "to_col": "lob_name",
+        "join_type": "INNER",
+        "notes": null
+    },
+    {
+        "from_table": "submission_groups",
+        "from_col": "account_id",
+        "to_table": "accounts",
+        "to_col": "account_id",
+        "join_type": "INNER",
+        "notes": null
+    },
+    {
+        "from_table": "submission_groups",
+        "from_col": "broker_id",
+        "to_table": "brokers",
+        "to_col": "broker_id",
+        "join_type": "INNER",
+        "notes": null
+    },
+    {
+        "from_table": "quotes",
+        "from_col": "carrier_id",
+        "to_table": "carriers",
+        "to_col": "carrier_id",
+        "join_type": "INNER",
+        "notes": null
+    },
+    {
+        "from_table": "policies",
+        "from_col": "carrier_id",
+        "to_table": "carriers",
+        "to_col": "carrier_id",
+        "join_type": "INNER",
+        "notes": null
+    }
+  ],
+  
+  "multi_hop_query_templates": {
+    "_description": "Reasoning scaffolds for complex questions that require joining 3+ tables or combining multiple metrics. For each template, the 'reasoning_steps' field shows how to decompose the question before writing SQL.",
+    "templates": [
+      {
+        "intent": "Which broker's book has the worst loss experience?",
+        "synonyms": ["worst broker by losses", "which producer is sending us bad risks", "broker loss ratio ranking"],
+        "reasoning_steps": [
+          "1. Start from losses table to get incurred amounts",
+          "2. Join losses → policies to get bound_premium",
+          "3. Join policies → submissions to get control_number and broker_id",
+          "4. Join submissions → brokers to get producer_name",
+          "5. GROUP BY producer_name, compute loss ratio = SUM(incurred) / NULLIF(SUM(bound_premium), 0)",
+          "6. ORDER BY loss_ratio_pct DESC"
+        ],
+        "tables_required": ["losses", "policies", "submissions", "brokers"]
+      },
+      {
+        "intent": "Which division has the best hit ratio and lowest loss ratio?",
+        "synonyms": ["best performing division", "most efficient segment", "division health check"],
+        "reasoning_steps": [
+          "1. For hit ratio: join quotes → submissions, GROUP BY division, compute hit_ratio_pct",
+          "2. For loss ratio: join losses → policies → submissions, GROUP BY division, compute loss_ratio_pct",
+          "3. These are two separate subqueries — join them on division",
+          "4. ORDER BY hit_ratio_pct DESC, loss_ratio_pct ASC to surface best performers"
+        ],
+        "tables_required": ["quotes", "submissions", "losses", "policies"],
+        "warning": "This requires a subquery or CTE joining two aggregations on division. Generate a CTE for clarity."
+      },
+      {
+        "intent": "Which accounts have high premium but also high losses?",
+        "synonyms": ["risky large accounts", "high value problem accounts", "big accounts with bad loss history"],
+        "reasoning_steps": [
+          "1. Join policies → submissions → accounts to get bound_premium per account",
+          "2. Join losses → policies → submissions → accounts to get incurred_amount per account",
+          "3. GROUP BY account_name",
+          "4. Compute both total_bound_premium and loss_ratio_pct",
+          "5. Filter or ORDER to surface accounts where both premium and loss ratio are high"
+        ],
+        "tables_required": ["accounts", "submissions", "policies", "losses"]
+      },
+      {
+        "intent": "Which carriers are most selective by line of business?",
+        "synonyms": ["carrier appetite by LOB", "which carriers decline most in a given line", "picky carriers for a coverage type"],
+        "reasoning_steps": [
+          "1. Join quotes → submissions to get lob_name alongside each quote",
+          "2. GROUP BY carrier_id, lob_name",
+          "3. Compute decline_rate_pct = declined / total quotes",
+          "4. ORDER BY lob_name, decline_rate_pct DESC to see worst-appetite carrier per line"
+        ],
+        "tables_required": ["quotes", "submissions", "carriers"]
+      },
+      {
+        "intent": "What is the pipeline value at risk (open submissions, total target premium)?",
+        "synonyms": ["how much premium is still in play", "open pipeline value", "total target premium on active submissions"],
+        "reasoning_steps": [
+          "1. Filter submissions WHERE submission_status IN ('submitted', 'in rating', 'underwriting review', 'referred to carrier')",
+          "2. SUM(target_premium) for total pipeline value",
+          "3. Optionally GROUP BY division or lob_name",
+          "4. JOIN accounts for account_name context if needed"
+        ],
+        "tables_required": ["submissions", "accounts"]
+      },
+      {
+        "intent": "Show me the full account profile for a given account",
+        "synonyms": ["account summary", "tell me everything about this account", "account 360", "account details"],
+        "reasoning_steps": [
+          "1. Pull account info from accounts table",
+          "2. Join submissions to get all LOBs and submission_statuses for this account",
+          "3. Join quotes to get carrier responses and quote statuses per submission",
+          "4. Join policies to get bound_premium where applicable",
+          "5. Join losses to get claim history where applicable",
+          "6. Filter by account_name using LIKE for fuzzy matching if exact name unknown"
+        ],
+        "tables_required": ["accounts", "submissions", "quotes", "policies", "losses"]
+      }
+    ]
+  },
+
+  "ambiguity_resolution_rules": {
+    "_description": "Explicit rules for how to handle questions where the user's intent could map to multiple valid SQL interpretations.",
+    "rules": [
+      {
+        "scenario": "User asks about 'premium' without specifying bound vs. target",
+        "default_behavior": "Use bound_premium from the policies table",
+        "comment_to_prepend": "-- Interpreting 'premium' as bound_premium (actual placed premium, not target)"
+      },
+      {
+        "scenario": "User asks about 'losses' without specifying paid vs. reserved vs. incurred",
+        "default_behavior": "Use incurred_amount (paid + reserved) as the most complete loss measure",
+        "comment_to_prepend": "-- Interpreting 'losses' as incurred_amount (paid + reserved)"
+      },
+      {
+        "scenario": "User asks about 'best' or 'worst' without specifying a metric",
+        "default_behavior": "For carriers: use hit_ratio. For accounts: use loss_ratio. For brokers: use hit_ratio.",
+        "comment_to_prepend": "-- Interpreting 'best/worst' as hit ratio for carriers/brokers, loss ratio for accounts"
+      },
+      {
+        "scenario": "User asks about a time period but no date column is obvious",
+        "default_behavior": "Filter on submissions.effective_date for submission-level questions; losses.loss_date for claim questions",
+        "comment_to_prepend": "-- Filtering by effective_date for submission scope; use strftime('%Y', effective_date) for year"
+      },
+      {
+        "scenario": "User names a carrier or account but spelling may be approximate",
+        "default_behavior": "Use LIKE '%user_term%' for fuzzy matching rather than exact equality",
+        "comment_to_prepend": "-- Using LIKE for fuzzy name match; refine if multiple results returned"
+      },
+      {
+        "scenario": "User asks 'how many' without specifying what to count",
+        "default_behavior": "Count distinct submissions (control_number) as the most natural unit of work",
+        "comment_to_prepend": "-- Interpreting 'how many' as count of submissions (control_number)"
+      }
+    ]
+  },
+
+  "common_failure_modes": {
+    "_description": "maps error patterns to likely causes and remediation strategies for the self-healing agent",
+    "patterns": [
+      {
+        "error_message": "no such column",
+        "likely_cause": "Column name doesn't exist in the referenced table, or the table alias wasn't included in the SELECT/WHERE clause",
+        "solution": "Check column name against dataDict columns for that table. If it exists on a different table, add the correct alias prefix"
+      },
+
+      {
+        "error_message": "no such table",
+        "likely_cause": "Table name misspelled, or a view was assumed to exist",
+        "solution": "Check against the table list in dataDict. There are no views - query base tables directly."
+      },
+
+      {
+        "error_message": "ambiguous column name",
+        "likely_cause": "Same column name exists on two joined tables and wasn't prefixed",
+        "solution":"Add the table alias prefix to every reference of that column"
+      },
+
+      {
+        "error_message":"CHECK constraint failed",
+        "likely_cause": "A filter value isn't in the column's allowed_values list",
+        "solution": "Look up allowed_values for that column in dataDict and rewrite the filter using WHERE IN with only valid values"
+      },
+
+      {
+        "error_message": "syntax error",
+        "likely_cause": "Malformed SQL, often from an unclosed clause or wrong dialect keyword",
+        "solution": "Re-read query structurally. Check for missing commas, unclosed parentheses, or dialect-specific keywords like TOP or LIMIT misuse."
+      }
+    ]
+  }
+}

@@ -8,11 +8,31 @@ import sqlite3
 import random
 from datetime import datetime, timedelta
 from faker import Faker
+from openpyxl import load_workbook
 
 fake = Faker()
 random.seed(42)
 Faker.seed(42)
 DB_PATH = "prototype.db"
+NAICS_XLSX_PATH = "NAICsSICs.xlsx" 
+SICS_XLSX_PATH = "SIC_CODES_FAMILIES.xlsx"
+
+def load_NAICS_SIC_ROWS(path = NAICS_XLSX_PATH):
+    wb = load_workbook(path, read_only=True, data_only=True)
+    ws = wb.active
+    rows = [r for r in ws.iter_rows(min_row=2, values_only=True)]
+    wb.close()
+    return rows 
+
+def build_NAICS_codes(crosswalk_rows):
+    seen = {}
+    for naics_code, naics_description,_, _ in crosswalk_rows:
+        seen.setdefault(str(naics_code), naics_description) 
+    return list(seen.items())
+
+def build_NAICS_SIC_crosswalk(crosswalk_rows):
+    return [(str(n), str(s), sd) for n, s, sd in crosswalk_rows]
+
 
 def make_dirty(value):
     choice = random.random()
@@ -162,145 +182,146 @@ LOBS = [
 ]
 """
 CARRIERS = [
-    ("CAR001", "A.I.M. Mutual Insurance Co.", fake.name()),
-    ("CAR002", "Admiral Insurance Company", fake.name()),
-    ("CAR003", "AIG Property Casualty Company", fake.name()),
-    ("CAR004", "Alpha Property & Casualty Insurance Co", fake.name()),
-    ("CAR005", "American Bankers Insurance Company of FL", fake.name()),
-    ("CAR006", "AmGUARD Insurance Company", fake.name()),
-    ("CAR007", "AmTrust Insurance Co of Kansas", fake.name()),
-    ("CAR008", "AmTrust North America Inc.", fake.name()),
-    ("CAR009", "Arch Insurance Company", fake.name()),
-    ("CAR010", "ARI Insurance Company", fake.name()),
-    ("CAR011", "Aspen American Insurance Company", fake.name()),
-    ("CAR012", "Aspen Specialty Insurance Company", fake.name()),
-    ("CAR013", "Associated Industries Insurance Company", fake.name()),
-    ("CAR014", "Axis Insurance Company", fake.name()),
-    ("CAR015", "AXIS Surplus Insurance Company", fake.name()),
-    ("CAR016", "Benchmark Insurance Company", fake.name()),
-    ("CAR017", "Berkley National Insurance Company", fake.name()),
-    ("CAR018", "Berkley National Insurance Company - Senior Living Admitted", fake.name()),
-    ("CAR019", "Berkley Specialty Insurance Company - Senior Living E & S", fake.name()),
-    ("CAR020", "Berkley Specialty Insurance Company -- E & S Non-Profit", fake.name()),
-    ("CAR021", "Blue Ridge Indemnity Insurance", fake.name()),
-    ("CAR022", "BMS Group", fake.name()),
-    ("CAR023", "Boost.io", fake.name()),
-    ("CAR024", "Bristol West Insurance Company", fake.name()),
-    ("CAR025", "Business Risk Partners", fake.name()),
-    ("CAR026", "Capitol Specialty Insurance Corporation", fake.name()),
-    ("CAR027", "Carolina Casualty Insurance Company", fake.name()),
-    ("CAR028", "Century Surety Co", fake.name()),
-    ("CAR029", "Certain Underwriters at Lloyd's -Coalition", fake.name()),
-    ("CAR030", "Certain Underwriters at Lloyds", fake.name()),
-    ("CAR031", "Charter Indemnity Co", fake.name()),
-    ("CAR032", "Chubb Indemnity Insurance Company", fake.name()),
-    ("CAR033", "Chubb Insurance Company of New Jersey", fake.name()),
-    ("CAR034", "Church Mutual Insurance Company - Non-Profit Program", fake.name()),
-    ("CAR035", "Church Mutual Insurance Company - Religious COE", fake.name()),
-    ("CAR036", "Clearance Carrier", fake.name()),
-    ("CAR037", "CM Regent Insurance Company",fake.name()),
-    ("CAR038", "CM Vantage Specialty Insurance Company", fake.name()),
-    ("CAR039", "CNA", fake.name()),
-    ("CAR040", "CO/ACTION Specialty Insurance Group",fake.name()),
-    ("CAR041", "Coast National Insurance Company", fake.name()),
-    ("CAR042", "Convex Insurance UK Limited", fake.name()),
-    ("CAR043", "Dairyland County Mutual Insurance Company of Texas", fake.name()),
-    ("CAR044", "Dairyland Insurance Company", fake.name()),
-    ("CAR045", "Drive New Jersey Insurance Company", fake.name()),
-    ("CAR046", "Employers Assurance Co - Healthcare", fake.name()),
-    ("CAR047", "Employers Assurance Co - Non-Profit", fake.name()),
-    ("CAR048", "Employers Assurance Company", fake.name()),
-    ("CAR049", "Employers Compensation Ins Co - Healthcare", fake.name()),
-    ("CAR050", "Employers Compensation Ins Co - Non-Profit", fake.name()),
-    ("CAR051", "Employers Preferred Insurance Company", fake.name()),
-    ("CAR052", "Endurance American Specialty Insurance Company", fake.name()),
-    ("CAR053", "Evanston Insurance Company", fake.name()),
-    ("CAR054", "Federal Insurance Company", fake.name()),
-    ("CAR055", "Financial Indemnity Company", fake.name()),
-    ("CAR056", "Foremost County Mutual Insurance Company", fake.name()),
-    ("CAR057", "Foremost Insurance Company", fake.name()),
-    ("CAR058", "Foremost Lloyds of TX", fake.name()),
-    ("CAR059", "Fortegra Specialty Insurance Company", fake.name()),
-    ("CAR060", "General Star Indemnity Company", fake.name()),
-    ("CAR061", "Great American Insurance Company", fake.name()),
-    ("CAR062", "Guard", fake.name()),
-    ("CAR063", "Guard Insurance Company", fake.name()),
-    ("CAR064", "GuideOne Elite Insurance Company", fake.name()),
-    ("CAR065", "GuideOne Mutual Insurance Company", fake.name()),
-    ("CAR066", "GuideOne National Insurance Company", fake.name()),
-    ("CAR067", "GuideOne Specialty Insurance Company", fake.name()),
-    ("CAR068", "Hadron Specialty Insurance Company", fake.name()),
-    ("CAR069", "Harleysville Insurance Company", fake.name()),
-    ("CAR070", "Harleysville Worcester Ins Co", fake.name()),
-    ("CAR071", "Hartford Casualty Ins Co", fake.name()),
-    ("CAR072", "Highview National Insurance Company", fake.name()),
-    ("CAR073", "Houston Casualty Company", fake.name()),
-    ("CAR074", "Hudson Excess Ins Co - Corvus", fake.name()),
-    ("CAR075", "Hudson Excess Insurance Company", fake.name()),
-    ("CAR076", "Hudson Insurance Company", fake.name()),
-    ("CAR077", "Hudson Specialty Insurance Company", fake.name()),
-    ("CAR078", "Insurance Company of the South", fake.name()),
-    ("CAR079", "Insurmark/Floodwatch", fake.name()),
-    ("CAR080", "Ironshore Europe Limited/Certain Underwriters at Lloyds", fake.name()),
-    ("CAR081", "Ironshore Specialty Insurance Company", fake.name()),
-    ("CAR082", "Kinsale Insurance Company", fake.name()),
-    ("CAR083", "Lexington Insurance Co", fake.name()),
-    ("CAR084", "Lexington Insurance Company", fake.name()),
-    ("CAR085", "LIO Insurance Group", fake.name()),
-    ("CAR086", "Lloyd's of London - Beazley Syndicate #2323/0623", fake.name()),
-    ("CAR087", "Lloyds of London", fake.name()),
-    ("CAR088", "Lyndon Southern Insurance Company", fake.name()),
-    ("CAR089", "Markel Ins Company", fake.name()),
-    ("CAR090", "Markel Insurance Company", fake.name()),
-    ("CAR091", "Middlesex Insurance Company", fake.name()),
-    ("CAR092", "Motor Transport Mutual RRG", fake.name()),
-    ("CAR093", "Moxie Series (Admitted)", fake.name()),
-    ("CAR094", "National Continental Insurance Company", fake.name()),
-    ("CAR095", "National General Insurance Company", fake.name()),
-    ("CAR096", "North American Capacity Ins Co", fake.name()),
-    ("CAR097", "North American Specialty Insurance Corporation", fake.name()),
-    ("CAR098", "Pacific Indemnity Company", fake.name()),
-    ("CAR099", "Palms Insurance Company, Ltd", fake.name()),
-    ("CAR100", "Peak Property and Casualty Insurance Corporation", fake.name()),
-    ("CAR101", "Pennsylvania Manufacturers Assoc. Insurance Co", fake.name()), 
-    ("CAR102", "Privilege Underwriters Reciprocal Exchange", fake.name()),
-    ("CAR103", "Progressive Casualty Insurance Company", fake.name()),
-    ("CAR104", "Progressive County Mutual Insurance Co", fake.name()),
-    ("CAR105", "PURE Programs, LLC", fake.name()), 
-    ("CAR106", "Quantum Series", fake.name()), 
-    ("CAR107", "Reliable Lloyds Insurance Company", fake.name()),
-    ("CAR108", "Republic-Vanguard Insurance Company", fake.name()),
-    ("CAR109", "Risk Smith", fake.name()), 
-    ("CAR110", "Rochdale Ins Co Of NY", fake.name()),
-    ("CAR111", "Security National Insurance Co", fake.name()), 
-    ("CAR112", "Sentry Insurance a Mutual Company", fake.name()), 
-    ("CAR113", "Sequoia Ins Co", fake.name()),
-    ("CAR114", "Sompo", fake.name()),
-    ("CAR115", "StarStone National Insurance Company", fake.name()),
-    ("CAR116", "Surya Ins Company - NEMT", fake.name()),
-    ("CAR117", "Technology Ins Co Inc", fake.name()),
-    ("CAR118", "Templar Series", fake.name()),
-    ("CAR119", "The Hartford", fake.name()),
-    ("CAR120", "The Hartford - VCAP", fake.name()),
-    ("CAR121", "Travelers Excess and Surplus LInes Company", fake.name()),
-    ("CAR122", "Unitrin County Mutual Insurance Co", fake.name()),
-    ("CAR123", "Vigilant Insurance Company", fake.name()),
-    ("CAR124", "Viking Insurance Company of Wisconsin", fake.name()),
-    ("CAR125", "Wesco Ins Co", fake.name()),
-    ("CAR126", "Westchester, A Chubb Company", fake.name()),
-    ("CAR127", "Wyvern Series (Admitted)", fake.name()),
-    ("CAR128", "Wyvern Series (Non-Admitted)", fake.name())
+    ("CAR001", "A.I.M. Mutual Insurance Co."),
+    ("CAR002", "Admiral Insurance Company"),
+    ("CAR003", "AIG Property Casualty Company"),
+    ("CAR004", "Alpha Property & Casualty Insurance Co"),
+    ("CAR005", "American Bankers Insurance Company of FL"),
+    ("CAR006", "AmGUARD Insurance Company"),
+    ("CAR007", "AmTrust Insurance Co of Kansas"),
+    ("CAR008", "AmTrust North America Inc."),
+    ("CAR009", "Arch Insurance Company"),
+    ("CAR010", "ARI Insurance Company"),
+    ("CAR011", "Aspen American Insurance Company"),
+    ("CAR012", "Aspen Specialty Insurance Company"),
+    ("CAR013", "Associated Industries Insurance Company"),
+    ("CAR014", "Axis Insurance Company"),
+    ("CAR015", "AXIS Surplus Insurance Company"),
+    ("CAR016", "Benchmark Insurance Company"),
+    ("CAR017", "Berkley National Insurance Company"),
+    ("CAR018", "Berkley National Insurance Company - Senior Living Admitted"),
+    ("CAR019", "Berkley Specialty Insurance Company - Senior Living E & S"),
+    ("CAR020", "Berkley Specialty Insurance Company -- E & S Non-Profit"),
+    ("CAR021", "Blue Ridge Indemnity Insurance"),
+    ("CAR022", "BMS Group"),
+    ("CAR023", "Boost.io"),
+    ("CAR024", "Bristol West Insurance Company"),
+    ("CAR025", "Business Risk Partners"),
+    ("CAR026", "Capitol Specialty Insurance Corporation"),
+    ("CAR027", "Carolina Casualty Insurance Company"),
+    ("CAR028", "Century Surety Co"),
+    ("CAR029", "Certain Underwriters at Lloyd's -Coalition"),
+    ("CAR030", "Certain Underwriters at Lloyds"),
+    ("CAR031", "Charter Indemnity Co"),
+    ("CAR032", "Chubb Indemnity Insurance Company"),
+    ("CAR033", "Chubb Insurance Company of New Jersey"),
+    ("CAR034", "Church Mutual Insurance Company - Non-Profit Program"),
+    ("CAR035", "Church Mutual Insurance Company - Religious COE"),
+    ("CAR036", "Clearance Carrier"),
+    ("CAR037", "CM Regent Insurance Company"),
+    ("CAR038", "CM Vantage Specialty Insurance Company"),
+    ("CAR039", "CNA"),
+    ("CAR040", "CO/ACTION Specialty Insurance Group"),
+    ("CAR041", "Coast National Insurance Company"),
+    ("CAR042", "Convex Insurance UK Limited"),
+    ("CAR043", "Dairyland County Mutual Insurance Company of Texas"),
+    ("CAR044", "Dairyland Insurance Company"),
+    ("CAR045", "Drive New Jersey Insurance Company"),
+    ("CAR046", "Employers Assurance Co - Healthcare"),
+    ("CAR047", "Employers Assurance Co - Non-Profit"),
+    ("CAR048", "Employers Assurance Company"),
+    ("CAR049", "Employers Compensation Ins Co - Healthcare"),
+    ("CAR050", "Employers Compensation Ins Co - Non-Profit"),
+    ("CAR051", "Employers Preferred Insurance Company"),
+    ("CAR052", "Endurance American Specialty Insurance Company"),
+    ("CAR053", "Evanston Insurance Company"),
+    ("CAR054", "Federal Insurance Company"),
+    ("CAR055", "Financial Indemnity Company"),
+    ("CAR056", "Foremost County Mutual Insurance Company"),
+    ("CAR057", "Foremost Insurance Company"),
+    ("CAR058", "Foremost Lloyds of TX"),
+    ("CAR059", "Fortegra Specialty Insurance Company"),
+    ("CAR060", "General Star Indemnity Company"),
+    ("CAR061", "Great American Insurance Company"),
+    ("CAR062", "Guard"),
+    ("CAR063", "Guard Insurance Company"),
+    ("CAR064", "GuideOne Elite Insurance Company"),
+    ("CAR065", "GuideOne Mutual Insurance Company"),
+    ("CAR066", "GuideOne National Insurance Company"),
+    ("CAR067", "GuideOne Specialty Insurance Company"),
+    ("CAR068", "Hadron Specialty Insurance Company"),
+    ("CAR069", "Harleysville Insurance Company"),
+    ("CAR070", "Harleysville Worcester Ins Co"),
+    ("CAR071", "Hartford Casualty Ins Co"),
+    ("CAR072", "Highview National Insurance Company"),
+    ("CAR073", "Houston Casualty Company"),
+    ("CAR074", "Hudson Excess Ins Co - Corvus"),
+    ("CAR075", "Hudson Excess Insurance Company"),
+    ("CAR076", "Hudson Insurance Company"),
+    ("CAR077", "Hudson Specialty Insurance Company"),
+    ("CAR078", "Insurance Company of the South"),
+    ("CAR079", "Insurmark/Floodwatch"),
+    ("CAR080", "Ironshore Europe Limited/Certain Underwriters at Lloyds"),
+    ("CAR081", "Ironshore Specialty Insurance Company"),
+    ("CAR082", "Kinsale Insurance Company"),
+    ("CAR083", "Lexington Insurance Co"),
+    ("CAR084", "Lexington Insurance Company"),
+    ("CAR085", "LIO Insurance Group"),
+    ("CAR086", "Lloyd's of London - Beazley Syndicate #2323/0623"),
+    ("CAR087", "Lloyds of London"),
+    ("CAR088", "Lyndon Southern Insurance Company"),
+    ("CAR089", "Markel Ins Company"),
+    ("CAR090", "Markel Insurance Company"),
+    ("CAR091", "Middlesex Insurance Company"),
+    ("CAR092", "Motor Transport Mutual RRG"),
+    ("CAR093", "Moxie Series (Admitted)"),
+    ("CAR094", "National Continental Insurance Company"),
+    ("CAR095", "National General Insurance Company"),
+    ("CAR096", "North American Capacity Ins Co"),
+    ("CAR097", "North American Specialty Insurance Corporation"),
+    ("CAR098", "Pacific Indemnity Company"),
+    ("CAR099", "Palms Insurance Company, Ltd"),
+    ("CAR100", "Peak Property and Casualty Insurance Corporation"),
+    ("CAR101", "Pennsylvania Manufacturers Assoc. Insurance Co"), 
+    ("CAR102", "Privilege Underwriters Reciprocal Exchange"),
+    ("CAR103", "Progressive Casualty Insurance Company"),
+    ("CAR104", "Progressive County Mutual Insurance Co"),
+    ("CAR105", "PURE Programs, LLC"), 
+    ("CAR106", "Quantum Series"), 
+    ("CAR107", "Reliable Lloyds Insurance Company"),
+    ("CAR108", "Republic-Vanguard Insurance Company"),
+    ("CAR109", "Risk Smith"), 
+    ("CAR110", "Rochdale Ins Co Of NY"),
+    ("CAR111", "Security National Insurance Co"), 
+    ("CAR112", "Sentry Insurance a Mutual Company"), 
+    ("CAR113", "Sequoia Ins Co"),
+    ("CAR114", "Sompo"),
+    ("CAR115", "StarStone National Insurance Company"),
+    ("CAR116", "Surya Ins Company - NEMT"),
+    ("CAR117", "Technology Ins Co Inc"),
+    ("CAR118", "Templar Series"),
+    ("CAR119", "The Hartford"),
+    ("CAR120", "The Hartford - VCAP"),
+    ("CAR121", "Travelers Excess and Surplus LInes Company"),
+    ("CAR122", "Unitrin County Mutual Insurance Co"),
+    ("CAR123", "Vigilant Insurance Company"),
+    ("CAR124", "Viking Insurance Company of Wisconsin"),
+    ("CAR125", "Wesco Ins Co"),
+    ("CAR126", "Westchester, A Chubb Company"),
+    ("CAR127", "Wyvern Series (Admitted)"),
+    ("CAR128", "Wyvern Series (Non-Admitted)")
 
 ]
 """
 (broker_id, producer_name, producer_state, relationship_owner)
 found 907 distinct producers so I'm generating 200 fake ones 
 """
-BROKERS = [
-    (f"BRK{str(i).zfill(3)}", fake.name(), make_dirty(fake.state_abbr()), make_dirty(fake.name()))
-    for i in range(1, 201)
+BROKER_GROUP_ID = 'BRKGRP001'  #global var to be accessed by numerous fcts
+BROKER_GROUP_NAME = "Convelo"
+BROKER_GROUPS = [
+    (BROKER_GROUP_ID,
+     BROKER_GROUP_NAME)
 ]
-
 
 # found over 5000 distinct account names so generating fake ones 
 
@@ -326,37 +347,51 @@ PRIORITIES = [
     "5 - Fully complete submission with broker requirements to bind and will be recommended ? Broker Controls"
 ]
 
-IMS_STATUSES = [
-    "submitted",
-    "declined",
-    "in rating",
-    "lost",
-    "not taken up",
-    "cancelled",
-    "bound-issued",
-    "underwriting review",
-    "referred to carrier",
-    "bound",
-    "expired",
-    "not quoted",
-    "pending cancellation"
+SUBMISSION_STATUSES = [
+    "Additional Information Received",
+    "Additional Information Request",
+    "Bound",
+    "Bound-Issued",
+    "Cancelled",
+    "Cancelled by Correction",
+    "Declined",
+    "Expired",
+    "In Rating",
+    "Indicated",
+    "Lost",
+    "Lost on BOR",
+    "Non-Renewed",
+    "Not Quoted",
+    "Not Taken Up",
+    "Pending Cancellation",
+    "Pending Reinstatement",
+    "Quoted",
+    "Quoted not Bound",
+    "Referred to Carrier",
+    "Submitted",
+    "Unbound Correction",
+    "Unbound Endorsement",
+    "Unbound Internal Correction",
+    "Underwriting Review",
+    "Unknown Status"
 ]
 
 QUOTE_STATUSES = [
-    "quoted",
-    "not quoted",
-    "bound",
-    "declined",
-    "not taken up",
-    "lost"
+    "Quoted",
+    "Quoted not Bound",
+    "Bound-Issued",
+    "Bound",
+    "Declined",
+    "Not Taken Up",
+    "Lost"
 ]
 
 POLICY_STATUSES = [
-    "bound",
-    "bound-issued",
-    "expired",
-    "cancelled",
-    "pending cancellation"
+    "Bound",
+    "Bound-Issued",
+    "Expired",
+    "Cancelled",
+    "Pending Cancellation"
 ]
 
 LOSS_STATUSES = [
@@ -364,7 +399,7 @@ LOSS_STATUSES = [
     "closed",
     "closed without payment",
     "reopened",
-    "litigation"
+    "pending"
 ]
 
 DIVISIONS = [
@@ -376,25 +411,76 @@ DIVISIONS = [
     "Other"
 ]
 
-def build_accounts(n=500):
+def build_accounts(n=500, naics_pool = None):
     rows = []
     for i in range(1, n+1):
-        premium = round(random.uniform(0, 1000000), 2)
-        if premium < 10000:
-            tier = "Small"
-        elif premium < 250000:
-            tier = "Medium"
-        else:
-            tier = "Large"
         account_name = fake.company()
+        employee_count = random.randint(1, 5000)
+        annual_revenue = round(random.uniform(50000, 50000000), 2)
+        naics_code = random.choice(naics_pool)
+        insured_state = fake.state.abbr()
         rows.append((f"ACC{str(i).zfill(3)}",
             make_dirty(account_name),  #dirty
             account_name,              #clean
-            tier,
+            employee_count,
+            annual_revenue,
+            naics_code, 
+            insured_state
+   ))
+    return rows
+
+n = 100
+def build_brokers(n, group_id = BROKER_GROUP_ID):
+    rows = []
+    for i in range(1, n+1):
+        broker_name = fake.company() + random.choice([" Insurance", " Risk Partners", " & Associates", " Group", ""])
+        relationship_owner = fake.name()
+        producer_state = fake.state_abbr()
+        rows.append ((
+            (f"BRK{str(i).zfill(3)}"),
+            broker_name,
+            group_id,
+            make_dirty(relationship_owner),
+            make_dirty(producer_state)
         ))
     return rows
 
-def build_submission_groups(accounts):
+n = 400
+def build_producers(n, brokers): 
+    rows = []
+    firm_ids = [b[0] for b in brokers]
+
+    n_large = int(len(firm_ids)*0.15)  #0.15 represents 15% of firms being large and 85% of firms being small.
+    n_small = len(firm_ids) - n_large
+    large_firms = firm_ids[:n_large]
+    small_firms = firm_ids[n_large:]
+
+    SMALL_FIRM_SIZE = 2
+    LARGE_FIRM_SIZE = (n - n_small * SMALL_FIRM_SIZE) // n_large
+    i = 1
+
+    for firm_id in large_firms:
+        for _ in range (LARGE_FIRM_SIZE):
+            rows.append((
+                f"PRD{str(i).zfill(3)}",
+                fake.name(),
+                random.choice(['R','W', 'MGA']),
+                firm_id
+            ))
+            i+=1
+
+    for firm_id in small_firms:
+        for _ in range(SMALL_FIRM_SIZE):
+            rows.append((
+                f"PRD{str(i).zfill(3)}",
+                fake.name(),
+                random.choice(['R','W', 'MGA']),
+                firm_id
+            ))
+            i+=1
+    return rows
+
+def build_submission_groups(accounts, producers):
     rows = []
     for account in accounts:
         
@@ -410,12 +496,12 @@ def build_submission_groups(accounts):
                (f"GRP{str(len(rows)+1).zfill(4)}"),
                round(random.uniform(0, 20000000), 2),
                account[0],
-               random.choice(BROKERS)[0]
+               random.choice(producers)[0]
             ))
 
     return rows
     
-def build_submissions(submission_groups): 
+def build_submissions(submission_groups, brokers):
     rows = []
     today = datetime.today()
     start = today.replace(month=1, day=1)
@@ -428,9 +514,9 @@ def build_submissions(submission_groups):
             exp = eff + timedelta(days=365)
             lob_name = random.choice(LOBS)[0]
             rows.append((
-                (f"CON{str(i).zfill(3)}{str(j).zfill(2)}"), 
+                (f"CON{str(i).zfill(3)}{str(j).zfill(2)}"),
                 group[2],
-                random.choice(BROKERS)[0],
+                random.choice(brokers)[0],
                 lob_name,
                 eff.strftime("%Y-%m-%d"),
                 exp.strftime("%Y-%m-%d"),
@@ -438,7 +524,7 @@ def build_submissions(submission_groups):
                 random.choice(PRIORITIES),
                 random.choice(TYPES),
                 group[0],
-                random.choices(IMS_STATUSES, weights=[30, 25, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 2], k=1)[0],
+                random.choice(SUBMISSION_STATUSES),
                 random.choice(LOB_DIVISION_MAP.get(lob_name, DIVISIONS))
                 ))
             
@@ -453,18 +539,19 @@ def build_quotes(submissions):
                     (f"QUO{str(i).zfill(3)}{str(j).zfill(2)}"),
                     submission[0],
                     random.choice(CARRIERS)[0],
+                    fake.name(),
                     round(random.uniform(0, 20000000), 2),
-                    random.choices(QUOTE_STATUSES, weights=[12, 53, 25, 5, 7, 3], k=1)[0]
+                    random.choice(QUOTE_STATUSES)
                 ))    
         return rows 
             
 def build_policies(quotes):
         rows = []
         for i, quote in enumerate(quotes):
-            if quote[4] in ("bound", "bound-issued"):
+            if quote[5] in ("Bound", "Bound-Issued"):
                 rows.append((
                     (f"POL{str(i).zfill(3)}"),
-                    quote[1],
+                    quote[0],
                     quote[2],
                     round(random.uniform(5000, 500000), 2),
                     random.choices(POLICY_STATUSES, weights = [25, 28, 20, 15, 12], k=1)[0]
@@ -492,7 +579,7 @@ def build_losses(policies):
                     paid_amount,
                     reserved_amount,
                     incurred_amount,
-                    random.choices(LOSS_STATUSES, weights = [40, 35, 15, 5, 5], k=1)[0]
+                    random.choice(LOSS_STATUSES)
                 ))
         return rows
     
@@ -503,25 +590,40 @@ def seed():
     with open("prototypeSchema.sql") as f:
         conn.executescript(f.read())
 
+    crosswalk_rows = load_NAICS_SIC_ROWS()
+    naics_codes = build_NAICS_codes(crosswalk_rows)
+    naics_sic = build_NAICS_SIC_crosswalk(crosswalk_rows)
+    cur.executemany("INSERT OR REPLACE INTO NAICS VALUES (?,?)", naics_codes)
+    cur.executemany("INSERT OR REPLACE INTO NAICS_SIC_CROSSWALK VALUES (?,?,?)", naics_sic)
     cur.executemany("INSERT OR REPLACE INTO lines_of_business VALUES (?)", LOBS)
-    cur.executemany("INSERT OR REPLACE INTO brokers VALUES (?,?,?,?)", BROKERS)
-    cur.executemany("INSERT OR REPLACE INTO carriers VALUES (?,?,?)",CARRIERS)
-
-
-    accounts = build_accounts(500)
+    cur.executemany("INSERT OR REPLACE INTO broker_groups VALUES (?,?)", BROKER_GROUPS)
+    carriers_with_underwriters = [
+        (carrier_id, carrier_name, make_dirty(fake.name())) for carrier_id, carrier_name in CARRIERS
+    ]
+    cur.executemany("INSERT OR REPLACE INTO carriers VALUES (?,?,?)", carriers_with_underwriters)
+    
+    naics_pool = [c[0] for c in naics_codes]
+    
+    accounts = build_accounts(500, naics_pool)
     cur.executemany("INSERT OR REPLACE INTO accounts VALUES (?,?,?,?)", accounts)
 
         # transactional data in dependency order 
         # each build_ fct receives its parent as a parameter
         # ? must match the number of fields in data schema per table
-    submission_groups = build_submission_groups(accounts)
+    brokers = build_brokers(n, group_id = BROKER_GROUP_ID)
+    cur.executemany("INSERT OR REPLACE INTO brokers VALUES (?,?,?,?,?)", brokers)
+
+    producers = build_producers(n, brokers)
+    cur.executemany("INSERT OR REPLACE INTO producers VALUES (?,?,?,?)", producers)
+
+    submission_groups = build_submission_groups(accounts, producers)
     cur.executemany("INSERT OR REPLACE INTO submission_groups VALUES (?,?,?,?)", submission_groups)
 
-    submissions = build_submissions(submission_groups)
+    submissions = build_submissions(submission_groups, brokers)
     cur.executemany("INSERT OR REPLACE INTO submissions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", submissions)
 
     quotes = build_quotes(submissions)
-    cur.executemany("INSERT OR REPLACE INTO quotes VALUES (?,?,?,?,?)", quotes)
+    cur.executemany("INSERT OR REPLACE INTO quotes VALUES (?,?,?,?,?,?)", quotes)
 
     policies = build_policies(quotes)
     cur.executemany("INSERT OR REPLACE INTO policies VALUES (?,?,?,?,?)", policies)
