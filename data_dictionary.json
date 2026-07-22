@@ -372,8 +372,8 @@
             "sql": "SELECT carrier_id, COUNT(*) AS total_quotes, SUM(CASE WHEN quote_status='declined' THEN 1 ELSE 0 END) AS declined_count, ROUND(100.0 * SUM(CASE WHEN quote_status='declined' THEN 1 ELSE 0 END) / COUNT(*), 2) AS decline_rate_pct FROM quotes GROUP BY carrier_id ORDER BY decline_rate_pct DESC"
         },
         {
-            "question": "What are the top 10 accounts by bound premium?"
-            "sql": "SELECT a.account_name, ROUND(SUM(p.bound_premium), 2) AS total_premium FROM policies p JOIN submissions s ON p.control_number=s.control_number JOIN accounts a ON s.account_id=a.account_id GROUP BY a.account_name, a.account_ ORDER BY total_premium DESC LIMIT 10"
+            "question": "What are the top 10 accounts by bound premium?",
+            "sql": "SELECT a.account_name, ROUND(SUM(p.bound_premium), 2) AS total_premium FROM policies p JOIN submissions s ON p.control_number=s.control_number JOIN accounts a ON s.account_id=a.account_id GROUP BY a.account_name ORDER BY total_premium DESC LIMIT 10"
         },
         {
             "question": "What is the hit ratio by division?",

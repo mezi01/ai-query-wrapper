@@ -30,7 +30,6 @@ DB_PATH              = "prototype.db"
 DICT_PATH            = "data_dictionary.json"
 SEMANTIC_PATH        = "semantic_model.json"
 MODEL                = "claude-sonnet-4-6"
-CONVERSATION_HISTORY = []
 
 
 def load_data_dictionary() -> dict:
@@ -43,12 +42,14 @@ def load_semantic_model() -> dict:
         return json.load(f)
 
 
-def build_system_prompt(dd: dict) -> str:
+def build_system_prompt(dd: dict, sm: dict) -> str:
     """
     Builds the system prompt by injecting:
     1. Business glossary
     2. Table descriptions
     3. Example Q→SQL pairs
+    4. Semantic model (synonyms, intent patterns, metric definitions,
+       join registry, multi-hop templates, ambiguity resolution rules)
     """
 
     # ── Layer 1: Business glossary ────────────────────────────
@@ -82,6 +83,49 @@ def build_system_prompt(dd: dict) -> str:
         for ex in dd["example_questions_and_sql"]
     )
 
+    # ── Layer 4: Semantic model ──────────────────────────────
+    synonyms_text = "\n".join(
+        f"- {canonical}: {', '.join(alts)}"
+        for canonical, alts in sm.get("synonym_map", {}).items()
+        if canonical != "_description"
+    )
+
+    def format_intent_pattern(p: dict) -> str:
+        phrases = '"' + '" / "'.join(p["user_says"]) + '"'
+        return f"- {phrases} → {p['resolved_intent']}: {p['default_interpretation']}"
+
+    intent_text = "\n".join(
+        format_intent_pattern(p)
+        for p in sm.get("intent_patterns", {}).get("patterns", [])
+    )
+
+    metrics_text = "\n\n".join(
+        f"- {name}: {m.get('definition', m.get('alias_of', ''))}\n"
+        f"  Required tables: {m.get('required_tables', [])}\n"
+        f"  Join path: {m.get('join_path', '')}\n"
+        f"  SQL pattern: {m.get('sql_pattern', '')}"
+        + (f"\n  Warning: {m['warning']}" if m.get("warning") else "")
+        for name, m in sm.get("metric_definitions", {}).items()
+        if name != "_description"
+    )
+
+    joins_text = "\n".join(
+        f"- {j['from_table']}.{j['from_col']} {j['join_type']} JOIN "
+        f"{j['to_table']}.{j['to_col']}"
+        + (f"  ({j['notes']})" if j.get("notes") else "")
+        for j in sm.get("join_registry", [])
+    )
+
+    multi_hop_text = "\n\n".join(
+        f"- {t['intent']}:\n" + "\n".join(f"    {step}" for step in t["reasoning_steps"])
+        for t in sm.get("multi_hop_query_templates", {}).get("templates", [])
+    )
+
+    ambiguity_text = "\n".join(
+        f"- {r['scenario']} → {r['default_behavior']} (comment: {r['comment_to_prepend']})"
+        for r in sm.get("ambiguity_resolution_rules", {}).get("rules", [])
+    )
+
     return f"""You are an expert insurance data analyst. You help users query an insurance CRM database using plain English.
 
 Your job:
@@ -106,6 +150,27 @@ TABLE SCHEMAS
 EXAMPLE QUESTIONS → SQL
 ═══════════════════════════════
 {examples_text}
+
+═══════════════════════════════
+SEMANTIC MODEL
+═══════════════════════════════
+SYNONYMS (treat any alternate phrasing below as its canonical term):
+{synonyms_text}
+
+INTENT PATTERNS (use when the question names no specific KPI or table):
+{intent_text}
+
+METRIC DEFINITIONS (guardrails for computing each KPI):
+{metrics_text}
+
+JOIN PATHS (do not invent a join that isn't listed):
+{joins_text}
+
+MULTI-HOP REASONING TEMPLATES:
+{multi_hop_text}
+
+AMBIGUITY RESOLUTION RULES:
+{ambiguity_text}
 
 RULES:
 - Query directly from tables — there are no views in this database
@@ -168,16 +233,16 @@ def format_results(cols: list, rows: list, max_col_width=28) -> str:
     return f"{header}\n{divider}\n{body}{suffix}"
 
 
-def get_sql_from_claude(question: str, system_prompt: str, client: Anthropic) -> str:
-    CONVERSATION_HISTORY.append({"role": "user", "content": question})
+def get_sql_from_claude(question: str, system_prompt: str, client: Anthropic, history: list) -> str:
+    history.append({"role": "user", "content": question})
     response = client.messages.create(
         model=MODEL,
         max_tokens=1000,
         system=system_prompt,
-        messages=CONVERSATION_HISTORY,
+        messages=history,
     )
     sql = response.content[0].text.strip()
-    CONVERSATION_HISTORY.append({"role": "assistant", "content": sql})
+    history.append({"role": "assistant", "content": sql})
     return sql
 
 
@@ -257,7 +322,7 @@ Return corrected SQL only."""
 
 
 def run_with_repair(sql: str, question: str, repair_prompt: str,
-                     client: Anthropic) -> tuple[str, list, list]:
+                     client: Anthropic, on_event=None) -> tuple[str, list, list]:
     """
     Executes sql, and on failure attempts up to MAX_REPAIR_ATTEMPTS fresh
     repairs. Stops early if the error string repeats exactly between two
@@ -266,46 +331,68 @@ def run_with_repair(sql: str, question: str, repair_prompt: str,
 
     Returns (final_sql, cols, rows). On unrecoverable failure, rows will
     still contain the ["ERROR", message] sentinel from run_sql.
+
+    If on_event is given, it is called with a dict describing each stage
+    (execute, execute_result, repair_start, repair_result, early_stop,
+    exhausted, success) so a caller like the Streamlit demo can render
+    the repair loop live.
     """
+    def emit(event: dict) -> None:
+        if on_event:
+            on_event(event)
+
+    emit({"stage": "execute", "sql": sql})
+
     previous_error = None
+    cols, rows = [], []
 
     for attempt in range(MAX_REPAIR_ATTEMPTS + 1):
         lines = sql.splitlines()
         new_list = [line for line in lines if not line.startswith("--")]
-        executable_sql = "\n".join(new_list) 
+        executable_sql = "\n".join(new_list)
         cols, rows = run_sql(executable_sql)
 
         is_error = bool(rows) and rows[0][0] == "ERROR"
         if not is_error:
+            emit({"stage": "execute_result", "attempt": attempt, "success": True,
+                  "sql": sql, "cols": cols, "rows": rows})
+            emit({"stage": "success", "attempt": attempt})
             return sql, cols, rows
 
         current_error = rows[0][1]
+        emit({"stage": "execute_result", "attempt": attempt, "success": False,
+              "sql": sql, "error": current_error})
 
         if current_error == previous_error:
             # Identical error twice in a row — repair isn't progressing.
+            emit({"stage": "early_stop", "error": current_error})
             break
 
         if attempt == MAX_REPAIR_ATTEMPTS:
             # Out of attempts; return the last failure as-is.
+            emit({"stage": "exhausted"})
             break
 
         previous_error = current_error
+        emit({"stage": "repair_start", "attempt": attempt, "prior_error": current_error})
         sql = repair_sql(question, sql, current_error, repair_prompt, client)
+        emit({"stage": "repair_result", "attempt": attempt, "new_sql": sql})
 
     return sql, cols, rows
 
 
-def ask(question: str, system_prompt: str, repair_prompt: str, client: Anthropic) -> tuple[str, list, list]:
-    sql = get_sql_from_claude(question, system_prompt, client)
+def ask(question: str, system_prompt: str, repair_prompt: str, client: Anthropic,
+        history: list, on_event=None) -> tuple[str, list, list]:
+    sql = get_sql_from_claude(question, system_prompt, client, history)
 
     if "CANNOT_ANSWER" in sql:
         reason = sql.split("CANNOT_ANSWER:")[-1].strip().lstrip("- ")
         return reason,[],[]
 
 
-    final_sql, cols, rows = run_with_repair(sql, question, repair_prompt, client)
+    final_sql, cols, rows = run_with_repair(sql, question, repair_prompt, client, on_event=on_event)
 
-    is_error = bool(rows) and rows[0][0] == "ERROR" 
+    is_error = bool(rows) and rows[0][0] == "ERROR"
     return final_sql, cols, rows
 
 def interactive_mode(system_prompt: str, repair_prompt: str, client: Anthropic) -> None:
@@ -314,6 +401,8 @@ def interactive_mode(system_prompt: str, repair_prompt: str, client: Anthropic) 
     print("  Ask questions in plain English.")
     print("  Type 'quit' to exit, 'reset' to clear conversation history.")
     print("═"*60)
+
+    history = []
 
     while True:
         try:
@@ -327,11 +416,11 @@ def interactive_mode(system_prompt: str, repair_prompt: str, client: Anthropic) 
         if question.lower() == "quit":
             break
         if question.lower() == "reset":
-            CONVERSATION_HISTORY.clear()
+            history.clear()
             print("  Conversation history cleared.")
             continue
 
-        sql, cols, rows = ask(question, system_prompt, repair_prompt, client)
+        sql, cols, rows = ask(question, system_prompt, repair_prompt, client, history)
 
     if not cols and not rows:
         print(f"\n Cannot answer: {sql}")
@@ -350,8 +439,9 @@ def demo_mode(system_prompt: str, repair_prompt: str, client: Anthropic) -> None
         "Which accounts have the worst loss ratios?",
         "What submissions are currently open?",
     ]
+    history = []
     for q in demo_questions:
-       sql, cols, rows = ask(q, system_prompt, repair_prompt, client)
+       sql, cols, rows = ask(q, system_prompt, repair_prompt, client, history)
 
     if not cols and not rows: 
         print(f"\n Cannot answer: {sql}")
@@ -376,11 +466,11 @@ def main():
     client        = Anthropic(api_key=api_key)
     dd            = load_data_dictionary()
     sm            = load_semantic_model()
-    system_prompt = build_system_prompt(dd)
+    system_prompt = build_system_prompt(dd, sm)
     repair_prompt = build_repair_prompt(sm)
 
     if args.question:
-        ask(args.question, system_prompt, repair_prompt, client)
+        ask(args.question, system_prompt, repair_prompt, client, [])
     elif args.demo:
         demo_mode(system_prompt, repair_prompt, client)
     else:
